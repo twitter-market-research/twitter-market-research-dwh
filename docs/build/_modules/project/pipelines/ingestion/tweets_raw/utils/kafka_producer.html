@@ -1,0 +1,221 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>project.pipelines.ingestion.tweets_raw.utils.kafka_producer &mdash; twitter-research 0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../../../_static/documentation_options.js?v=2709fde1"></script>
+      <script src="../../../../../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../../../index.html" class="icon icon-home">
+            twitter-research
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Pipeline Ingestion</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../modules/tweet_validator.html">TweetValidator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../modules/tweet_serializer.html">TweetSerializer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../modules/key_builder.html">KeyBuilder</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../modules/kafka_producer.html">TweetsRawProducer</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../../../index.html">twitter-research</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">project.pipelines.ingestion.tweets_raw.utils.kafka_producer</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for project.pipelines.ingestion.tweets_raw.utils.kafka_producer</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">dbm</span><span class="w"> </span><span class="kn">import</span> <span class="n">error</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">kafka</span><span class="w"> </span><span class="kn">import</span> <span class="n">KafkaProducer</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">project.pipelines.ingestion.tweets_raw.utils.tweet_validator</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">TweetValidator</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">project.pipelines.ingestion.tweets_raw.utils.tweet_serializer</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">TweetSerializer</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">project.pipelines.ingestion.tweets_raw.utils.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">tweets_sent</span><span class="p">,</span> <span class="n">tweets_rejected</span><span class="p">,</span> <span class="n">send_latency</span>
+<span class="p">)</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">project.pipelines.ingestion.tweets_raw.utils.key_builder</span><span class="w"> </span><span class="kn">import</span> <span class="n">KeyBuilder</span>
+
+
+<div class="viewcode-block" id="TweetsRawProducer">
+<a class="viewcode-back" href="../../../../../../modules/kafka_producer.html#project.pipelines.ingestion.tweets_raw.utils.kafka_producer.TweetsRawProducer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">TweetsRawProducer</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Kafka producer for raw tweets. It validates and serializes</span>
+<span class="sd">     tweets before sending</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">brokers</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">tweets_topic</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">audit_topic</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tweets_topic</span> <span class="o">=</span> <span class="n">tweets_topic</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_audit_topic</span> <span class="o">=</span> <span class="n">audit_topic</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validator</span> <span class="o">=</span> <span class="n">TweetValidator</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_serializer</span> <span class="o">=</span> <span class="n">TweetSerializer</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_key_builder</span> <span class="o">=</span> <span class="n">KeyBuilder</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_producer</span> <span class="o">=</span> <span class="n">KafkaProducer</span><span class="p">(</span>
+            <span class="n">bootstrap_servers</span><span class="o">=</span><span class="n">brokers</span><span class="p">,</span>
+            <span class="n">acks</span><span class="o">=</span><span class="s2">&quot;all&quot;</span><span class="p">,</span>
+            <span class="n">linger_ms</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>
+            <span class="n">enable_idempotence</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="TweetsRawProducer.send">
+<a class="viewcode-back" href="../../../../../../modules/kafka_producer.html#project.pipelines.ingestion.tweets_raw.utils.kafka_producer.TweetsRawProducer.send">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tweet</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function sends a tweet to the appropriate</span>
+<span class="sd">        Kafka topic based on its validity.</span>
+<span class="sd">        - if valid → topic tweets_raw</span>
+<span class="sd">        - else → topic audit_logs with validation errors</span>
+<span class="sd">        Args:</span>
+<span class="sd">            tweet (Dict[str, Any]): The tweet to be sent.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">validation</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_validator</span><span class="o">.</span><span class="n">validate</span><span class="p">(</span><span class="n">tweet</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">validation</span><span class="o">.</span><span class="n">is_valid</span><span class="p">:</span>
+            <span class="c1"># log errors in audit topic</span>
+            <span class="n">audit_event</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;VALIDATION_ERROR&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;source&quot;</span><span class="p">:</span> <span class="s2">&quot;tweets_raw_producer&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;errors&quot;</span><span class="p">:</span> <span class="n">validation</span><span class="o">.</span><span class="n">errors</span><span class="p">,</span>
+                <span class="s2">&quot;raw_tweet&quot;</span><span class="p">:</span> <span class="n">tweet</span><span class="p">,</span>
+            <span class="p">}</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            We send the audit event to the audit_logs topic with a</span>
+<span class="sd">             fixed key &quot;validation_error&quot;. The value is the serialized</span>
+<span class="sd">             audit event, which includes the validation errors and</span>
+<span class="sd">             the original tweet.</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_producer</span><span class="o">.</span><span class="n">send</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_audit_topic</span><span class="p">,</span>
+                <span class="n">key</span><span class="o">=</span><span class="sa">b</span><span class="s2">&quot;validation_error&quot;</span><span class="p">,</span>
+                <span class="n">value</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_serializer</span><span class="o">.</span><span class="n">serialize</span><span class="p">(</span><span class="n">audit_event</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="c1"># build key and value for valid tweet and send to tweets_raw topic</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_key_builder</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">tweet</span><span class="p">)</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_serializer</span><span class="o">.</span><span class="n">serialize</span><span class="p">(</span><span class="n">tweet</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="n">send_latency</span><span class="o">.</span><span class="n">time</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_producer</span><span class="o">.</span><span class="n">send</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_tweets_topic</span><span class="p">,</span>
+                <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span>
+                <span class="n">value</span><span class="o">=</span><span class="n">value</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="c1"># Update metrics</span>
+        <span class="n">tweets_sent</span><span class="o">.</span><span class="n">labels</span><span class="p">(</span><span class="n">club</span><span class="o">=</span><span class="n">tweet</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;club&quot;</span><span class="p">,</span> <span class="s2">&quot;unknown&quot;</span><span class="p">))</span><span class="o">.</span><span class="n">inc</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">error_name</span> <span class="ow">in</span> <span class="n">validation</span><span class="o">.</span><span class="n">errors</span><span class="p">:</span>
+            <span class="n">tweets_rejected</span><span class="o">.</span><span class="n">labels</span><span class="p">(</span><span class="n">reason</span><span class="o">=</span><span class="n">error_name</span><span class="p">)</span><span class="o">.</span><span class="n">inc</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="TweetsRawProducer.flush">
+<a class="viewcode-back" href="../../../../../../modules/kafka_producer.html#project.pipelines.ingestion.tweets_raw.utils.kafka_producer.TweetsRawProducer.flush">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">flush</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function flushes waiting messages.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_producer</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="TweetsRawProducer.close">
+<a class="viewcode-back" href="../../../../../../modules/kafka_producer.html#project.pipelines.ingestion.tweets_raw.utils.kafka_producer.TweetsRawProducer.close">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function flushes and closes the producer.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_producer</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_producer</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Sémakia.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

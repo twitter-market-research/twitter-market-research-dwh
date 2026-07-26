@@ -1,0 +1,17 @@
+version: "3"
+
+tasks:
+  code-check:
+    desc: "Run linting (placeholder - integrate MegaLinter/dbt/tests)"
+    cmds:
+      - echo "TODO: wire megalinter/dbt/test"
+
+  code-fix:
+    desc: "Auto-fix (placeholder)"
+    cmds:
+      - echo "TODO: auto-fix linters"
+
+  run-local:
+    desc: "Run local stack (placeholder)"
+    cmds:
+      - echo "TODO: docker compose up in iac/dev"

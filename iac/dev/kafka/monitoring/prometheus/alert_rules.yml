@@ -1,0 +1,50 @@
+
+groups:
+  - name: kafka_cluster_alerts
+    rules:
+      # ------- Kafka Broker offline -------
+      - alert: kafkaBrokerDown
+        expr: up{job=~"kafka-broker-.*"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Kafka Broker is down"
+          description: "One or more Kafka brokers are not responding to Prometheus scrapes for more than 1 minute."
+  
+      # ------- Under-replicated partitions -------
+      - alert: kafkaUnderReplicatedPartitions
+        expr: kafka_broker_under_replicated_partitions > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Under-replicated partitions detected"
+          description: "There are {{ $value }} under-replicated partitions in the Kafka cluster for more than 5 minutes. This may indicate issues with broker replication or performance."
+      # ------- Controller not active -------
+      - alert: kafkaControllerNotActive
+        expr: SUM(kafka_controller_active_count) != 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Kafka Controller is not active"
+          description: "The Kafka controller is not active for more than 2 minutes. This may indicate a failure in the controller broker or issues with Zookeeper connectivity."
+      # ------- High Consumer lag -------
+      - alert: kafkaHighConsumerLag
+        expr: kafka_consumer_group_lag(topics="tweets_raw") > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High Consumer lag detected"
+          description: "There is high consumer lag in the Kafka cluster for more than 5 minutes. This may indicate performance issues or bottlenecks in the consumer applications."
+      # ------- Low Incoming Messages -------
+      - alert: kafkaLowIncomingMessages
+        expr: kafka_broker_messages_in_per_sec < 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low incoming messages rate detected"
+          description: "The rate of incoming messages to the Kafka cluster is very low for more than 10 minutes. This may indicate issues with producers or a drop in traffic."    

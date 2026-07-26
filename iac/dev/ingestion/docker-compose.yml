@@ -1,0 +1,60 @@
+services:
+
+  kafka-healthcheck:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka-healthcheck-ingestion
+    entrypoint: ["/bin/sh", "-c"]
+    command: |
+      "echo 'checking Kafka health...' && \
+      cub kafka-ready -b broker-1:29092,broker-2:29092,broker-3:29092 3 60 && \
+      echo 'Kafka is ready.'"
+    networks:
+      - twitter-research-network
+  # tweets raw producer service to fetch tweets from Twitter API and send to Kafka
+  tweets-raw-producer:
+    build:
+      context: ../../../project/pipelines/ingestion
+      dockerfile: tweets_raw/Dockerfile
+    container_name: tweets-raw-producer
+    dns:
+      - 8.8.8.8       # Google DNS
+      - 8.8.4.4       # Google DNS secondaire
+      - 1.1.1.1       # Cloudflare DNS
+    environment:
+      KAFKA_BROKERS: broker-1:29092,broker-2:29092,broker-3:29092
+      TOPIC_NAME: tweets_raw
+      TWITTER_BEARER_TOKEN: ${TWITTER_BEARER_TOKEN}
+      SEARCH_KEYWORDS: ${SEARCH_KEYWORDS:-"#Ligue1"}
+      TWIKIT_AUTH_TOKEN: ${TWIKIT_AUTH_TOKEN}
+      LANG_FILTER: ${LANG_FILTER:-"fr"}
+      BATCH_SIZE: ${BATCH_SIZE:-100}
+    depends_on:
+      kafka-healthcheck:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    networks:
+      - twitter-research-network
+
+  # logs producer service to send audit logs to Kafka
+  logs-producer:
+    build:
+      context: ../../../project/pipelines/ingestion
+      dockerfile: audit_logs/Dockerfile
+    container_name: logs-producer
+    dns:
+      - 8.8.8.8       # Google DNS
+      - 8.8.4.4       # Google DNS secondaire
+      - 1.1.1.1       # Cloudflare DNS
+    environment:
+      KAFKA_BROKERS: broker-1:29092,broker-2:29092,broker-3:29092
+      TOPIC_NAME: audit_logs
+    depends_on:
+      - kafka-healthcheck
+    restart: unless-stopped
+    networks:
+      - twitter-research-network
+
+  # helper service to check Kafka health before starting producers
+
+
+

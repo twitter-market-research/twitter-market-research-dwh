@@ -1,0 +1,27 @@
+
+global:
+  slack_api_url: "https://hooks.slack.com/services/TON/WEBHOOK/ICI"
+
+route:
+  receiver: "slack-alerts"
+  group_by: ["alertname", "severity"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 1h
+  routes:
+    - match:
+        severity: critical
+      receiver: "slack-critical-alerts"
+
+receivers:
+  - name: "slack-alerts"
+    slack_configs:
+      - channel: "#kafka-monitoring"
+        title: " Alert Kafka - {{ .CommonLabels.alertname }}"
+        text: "{{ range .Alerts }}{{ .Annotations.description }}\n{{ end }}"
+  
+  - name: "slack-critical"
+    slack_configs:
+      - channel: "#kafka-critical"
+        title: "CRITICAL Alert Kafka - {{ .CommonLabels.alertname }}"
+        text: "{{ range .Alerts }}{{ .Annotations.description }}\n{{ end }}"

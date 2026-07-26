@@ -1,0 +1,19 @@
+name: twitter-market-research
+
+include:
+  - path:
+    - ./kafka/docker-compose.yml
+    - ./ingestion/docker-compose.yml
+    #- ./spark/docker-compose.yml
+    #- ./dashboard/docker-compose.yml
+    env_file:
+      - ../.env.dev
+  - path:
+    - ./storage/S3/docker-compose.yml
+    env_file:
+      - ../.env.dev
+
+networks:
+  twitter-research-network:
+    driver: bridge
+    name: twitter-research-network

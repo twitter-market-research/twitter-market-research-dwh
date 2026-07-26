@@ -1,0 +1,28 @@
+# JMX Exporter configuration for Kafka Broker
+# This configuration is used to expose Kafka Broker metrics in a format that Prometheus can scrape.
+
+lowercaseOutputName: true
+lowercaseOutputLabelNames: true
+
+rules:
+  - pattern: "kafka.server<type=BrokerTopicMetrics, name=MessagesInPerSec><>OneMinuteRate"
+    name: kafka_broker_messages_in_per_sec
+    help: "One minute rate of messages coming into the Kafka broker."
+  - pattern: "kafka.server<type=BrokerTopicMetrics, name=BytesInPerSec><>OneMinuteRate"
+    name: kafka_broker_bytes_in_per_sec
+    help: "One minute rate of bytes coming into the Kafka broker."
+  - pattern: "kafka.server<type=BrokerTopicMetrics, name=BytesOutPerSec><>OneMinuteRate"
+    name: kafka_broker_bytes_out_per_sec
+    help: "One minute rate of bytes going out of the Kafka broker."
+  - pattern: "kafka.server<type=ReplicaManager, name=UnderReplicatedPartitions><>Value"
+    name: kafka_broker_under_replicated_partitions
+    help: "Number of under-replicated partitions in the Kafka broker."
+  - pattern: "kafka.controller<type=KafkaController, name=ActiveControllerCount><>Value"
+    name: kafka_controller_active_count
+    help: "Indicates if the Kafka controller is active (1) or not (0)."
+  - pattern: "kafka.network<type=RequestMetrics, name=RequestsPerSec, request=Produce><>OneMinuteRate"
+    name: kafka_network_produce_requests_per_sec
+    help: "One minute rate of Produce requests received by the Kafka broker."
+  - pattern: "kafka.network<type=RequestMetrics, name=RequestsPerSec, request=FetchConsumer><>OneMinuteRate"
+    name: kafka_network_fetch_consumer_requests_per_sec
+    help: "One minute rate of FetchConsumer requests received by the Kafka broker."

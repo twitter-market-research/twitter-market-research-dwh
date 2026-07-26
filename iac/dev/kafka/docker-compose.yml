@@ -1,0 +1,149 @@
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    hostname: zookeeper
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - twitter-research-network
+
+  broker-1:
+    image: confluentinc/cp-kafka:7.5.0
+    hostname: broker-1
+    container_name: broker-1
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "broker-1:29092"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "9101:9101"  # JMX
+      - "7071:7071"  # Prometheus metrics
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker-1:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+      KAFKA_JMX_PORT: 9101
+      KAFKA_JMX_HOSTNAME: broker-1
+    volumes:
+      - ./monitoring/jmx-exporter/kafka-broker.yml:/etc/kafka/jmx-exporter.yml
+    networks:
+      - twitter-research-network
+
+
+  broker-2:
+    image: confluentinc/cp-kafka:7.5.0
+    hostname: broker-2
+    container_name: broker-2
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "broker-2:29092"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      - zookeeper
+    ports:
+      - "9093:9093"
+      - "9102:9102"  # JMX
+      - "7072:7072"  # Prometheus metrics
+    environment:
+      KAFKA_BROKER_ID: 2
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker-2:29092,PLAINTEXT_HOST://localhost:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+      KAFKA_JMX_PORT: 9102
+      KAFKA_JMX_HOSTNAME: broker-2
+    volumes:
+     - ./monitoring/jmx-exporter/kafka-broker.yml:/opt/kafka/jmx-exporter.yml
+    networks:
+      - twitter-research-network
+
+
+  broker-3:
+    image: confluentinc/cp-kafka:7.5.0
+    hostname: broker-3
+    container_name: broker-3
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "broker-3:29092"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      - zookeeper
+    ports:
+      - "9094:9094"
+      - "9103:9103"  # JMX
+      - "7073:7073"  # Prometheus metrics
+    environment:
+      KAFKA_BROKER_ID: 3
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker-3:29092,PLAINTEXT_HOST://localhost:9094
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+      KAFKA_JMX_PORT: 9103
+      KAFKA_JMX_HOSTNAME: broker-3
+    volumes:
+      - ./monitoring/jmx-exporter/kafka-broker.yml:/opt/kafka/jmx-exporter.yml
+    networks:
+      - twitter-research-network
+
+  init-topics:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: init-topics
+    depends_on:
+      broker-1:
+        condition: service_healthy
+      broker-2:
+        condition: service_healthy
+      broker-3:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command: |
+      "echo 'Waiting for Kafka brokers to be ready...' && \
+      cub kafka-ready -b broker-1:29092,broker-2:29092,broker-3:29092 3 60
+      echo 'Creating topics...'
+      kafka-topics --create --if-not-exists --topic tweets_raw --partitions 3 --replication-factor 3 --bootstrap-server broker-1:29092,broker-2:29092,broker-3:29092
+      kafka-topics --create --if-not-exists --topic tweets_enriched --partitions 3 --replication-factor 3 --bootstrap-server broker-1:29092,broker-2:29092,broker-3:29092
+      kafka-topics --create --if-not-exists --topic audit_logs --partitions 3 --replication-factor 3 --bootstrap-server broker-1:29092,broker-2:29092,broker-3:29092
+      echo 'Topics created successfully.'"
+      kafka-topics --list --bootstrap-server broker-1:29092
+    networks:
+      - twitter-research-network
+
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAP_SERVERS: broker-1:29092,broker-2:29092,broker-3:29092
+    depends_on:
+      - broker-1
+      - broker-2
+      - broker-3
+    networks:
+      - twitter-research-network

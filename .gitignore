@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Env files / secrets
+.env
+.env.*
+iac/.env.*
+!*.env.example
+!iac/.env.dist
+
+
+# Logs
+*.log
+**/logs/
+
+# OS
+.DS_Store
