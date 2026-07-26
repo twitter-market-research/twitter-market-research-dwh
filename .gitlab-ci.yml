@@ -1,7 +1,0 @@
-stages: [code]
-
-code-quality:
-  stage: code
-  image: node:20
-  script:
-    - echo "TODO: run megalinter/dbt/tests"
