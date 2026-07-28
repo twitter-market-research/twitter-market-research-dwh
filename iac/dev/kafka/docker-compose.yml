@@ -3,11 +3,15 @@ services:
     image: confluentinc/cp-zookeeper:7.5.0
     hostname: zookeeper
     container_name: zookeeper
+    restart: unless-stopped
     ports:
       - "2181:2181"
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-log:/var/lib/zookeeper/log
     networks:
       - twitter-research-network
 
@@ -15,6 +19,7 @@ services:
     image: confluentinc/cp-kafka:7.5.0
     hostname: broker-1
     container_name: broker-1
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "broker-1:29092"]
       interval: 10s
@@ -39,6 +44,7 @@ services:
       KAFKA_JMX_PORT: 9101
       KAFKA_JMX_HOSTNAME: broker-1
     volumes:
+      - broker-1-data:/var/lib/kafka/data
       - ./monitoring/jmx-exporter/kafka-broker.yml:/etc/kafka/jmx-exporter.yml
     networks:
       - twitter-research-network
@@ -48,6 +54,7 @@ services:
     image: confluentinc/cp-kafka:7.5.0
     hostname: broker-2
     container_name: broker-2
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "broker-2:29092"]
       interval: 10s
@@ -72,7 +79,8 @@ services:
       KAFKA_JMX_PORT: 9102
       KAFKA_JMX_HOSTNAME: broker-2
     volumes:
-     - ./monitoring/jmx-exporter/kafka-broker.yml:/opt/kafka/jmx-exporter.yml
+      - broker-2-data:/var/lib/kafka/data
+      - ./monitoring/jmx-exporter/kafka-broker.yml:/etc/kafka/jmx-exporter.yml
     networks:
       - twitter-research-network
 
@@ -81,6 +89,7 @@ services:
     image: confluentinc/cp-kafka:7.5.0
     hostname: broker-3
     container_name: broker-3
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "broker-3:29092"]
       interval: 10s
@@ -105,7 +114,8 @@ services:
       KAFKA_JMX_PORT: 9103
       KAFKA_JMX_HOSTNAME: broker-3
     volumes:
-      - ./monitoring/jmx-exporter/kafka-broker.yml:/opt/kafka/jmx-exporter.yml
+      - broker-3-data:/var/lib/kafka/data
+      - ./monitoring/jmx-exporter/kafka-broker.yml:/etc/kafka/jmx-exporter.yml
     networks:
       - twitter-research-network
 
@@ -120,15 +130,30 @@ services:
       broker-3:
         condition: service_healthy
     entrypoint: ["/bin/sh", "-c"]
+    # set -e : toute erreur de création stoppe le job (pas d'échec silencieux).
+    # BROKERS commun aux commandes. Rétention explicite par topic (#9) :
+    #  - tweets_raw / tweets_enriched : 7j (la source de vérité part vers S3)
+    #  - audit_logs (sert aussi de DLQ) : 14j pour laisser le temps de rejouer
     command: |
-      "echo 'Waiting for Kafka brokers to be ready...' && \
-      cub kafka-ready -b broker-1:29092,broker-2:29092,broker-3:29092 3 60
+      set -e
+      BROKERS=broker-1:29092,broker-2:29092,broker-3:29092
+      echo 'Waiting for Kafka brokers to be ready...'
+      cub kafka-ready -b "$$BROKERS" 3 60
       echo 'Creating topics...'
-      kafka-topics --create --if-not-exists --topic tweets_raw --partitions 3 --replication-factor 3 --bootstrap-server broker-1:29092,broker-2:29092,broker-3:29092
-      kafka-topics --create --if-not-exists --topic tweets_enriched --partitions 3 --replication-factor 3 --bootstrap-server broker-1:29092,broker-2:29092,broker-3:29092
-      kafka-topics --create --if-not-exists --topic audit_logs --partitions 3 --replication-factor 3 --bootstrap-server broker-1:29092,broker-2:29092,broker-3:29092
-      echo 'Topics created successfully.'"
-      kafka-topics --list --bootstrap-server broker-1:29092
+      kafka-topics --create --if-not-exists --topic tweets_raw \
+        --partitions 3 --replication-factor 3 \
+        --config retention.ms=604800000 --config min.insync.replicas=2 \
+        --bootstrap-server "$$BROKERS"
+      kafka-topics --create --if-not-exists --topic tweets_enriched \
+        --partitions 3 --replication-factor 3 \
+        --config retention.ms=604800000 --config min.insync.replicas=2 \
+        --bootstrap-server "$$BROKERS"
+      kafka-topics --create --if-not-exists --topic audit_logs \
+        --partitions 3 --replication-factor 3 \
+        --config retention.ms=1209600000 --config min.insync.replicas=2 \
+        --bootstrap-server "$$BROKERS"
+      echo 'Topics created successfully. Current topics:'
+      kafka-topics --list --bootstrap-server "$$BROKERS"
     networks:
       - twitter-research-network
 
@@ -147,3 +172,12 @@ services:
       - broker-3
     networks:
       - twitter-research-network
+
+# Volumes nommés : persistent les données du cluster entre recreate/down.
+# Sans eux, un `docker compose down` efface topics, offsets et messages.
+volumes:
+  zookeeper-data:
+  zookeeper-log:
+  broker-1-data:
+  broker-2-data:
+  broker-3-data:
