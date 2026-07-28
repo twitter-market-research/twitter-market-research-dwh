@@ -29,13 +29,13 @@ class TestTweetValidator:
     ):
         """
         This test checks that a tweet missing
-         the 'tweet_id' field fails validation.
+         the 'id' field fails validation.
         Args:
            - valid_tweet (dict): A fixture that provides a valid
             tweet dictionary.
         """
         tweet = valid_tweet.copy()
-        del tweet["tweet_id"]
+        del tweet["id"]
         validator = TweetValidator()
         assert validator.is_valid_tweet(tweet) is False
 

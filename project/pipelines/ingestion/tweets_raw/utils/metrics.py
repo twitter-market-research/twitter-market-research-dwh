@@ -23,6 +23,14 @@ send_latency = Histogram(
     "Latency of sending tweets to Kafka topics in seconds",
 )
 
+# Counter to track messages the broker never acknowledged (async delivery
+# failures reported via the delivery callback), labeled by topic.
+delivery_failed = Counter(
+    "tweets_raw_producer_delivery_failed_total",
+    "Total number of messages that failed to be delivered to Kafka",
+    ["topic"]
+)
+
 
 def start_metrics_server(port: int = 8000) -> None:
     """
