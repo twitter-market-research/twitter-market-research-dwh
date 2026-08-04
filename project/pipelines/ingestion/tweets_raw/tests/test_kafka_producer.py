@@ -1,7 +1,7 @@
 """Tests du TweetsRawProducer (API confluent_kafka).
 
 Ces tests encodent les garanties de livraison attendues :
-- #1/#2/#3 : configuration at-least-once (idempotence, acks=all, delivery.timeout sain)
+- #1/#2/#3 : config at-least-once (idempotence, acks=all, delivery.timeout)
 - #4       : close() flush sans appeler un .close() inexistant
 - #5       : métriques sent/rejected incrémentées sur le bon chemin
 - #14      : un tweet en erreur n'avorte pas le batch (isolation par record)
@@ -20,7 +20,7 @@ MODULE = "project.pipelines.ingestion.tweets_raw.utils.kafka_producer"
 
 @pytest.fixture
 def producer_and_mock():
-    """Instancie un TweetsRawProducer avec un Producer confluent_kafka mocké."""
+    """Instancie un TweetsRawProducer avec un Producer confluent mocké."""
     with patch(f"{MODULE}.Producer") as mock_cls:
         mock_producer = MagicMock()
         mock_cls.return_value = mock_producer
@@ -91,7 +91,7 @@ class TestMetrics:
     def test_invalid_tweet_increments_rejected(
         self, producer_and_mock, invalid_tweet_missing_fields
     ):
-        """#5 (bug corrigé) : le compteur rejected est bien incrémenté sur rejet,
+        """#5 (bug corrigé) : le compteur rejected est incrémenté sur rejet,
         une fois par erreur de validation."""
         producer, _, _ = producer_and_mock
 

@@ -380,9 +380,14 @@ class ScraperEnricher:
                 "Client twikit non initialisé. Appelez login() d'abord."
             )
 
-        # Essayer de récupérer l'user_id depuis le cache par username
-        # (Note: le cache est indexé par user_id, donc on fait un lookup)
-        # Pour le premier appel, on va directement scraper
+        # Cache hit ? Le cache est indexé par username pour ce flux : on ne
+        # connaît pas l'user_id avant d'avoir appelé l'API. Un hit évite à la
+        # fois le délai anti-rate-limit et l'appel réseau.
+        cached = self._cache.get(username)
+        if cached is not None:
+            self._cache.record_access(hit=True)
+            logger.debug(f"Cache hit pour @{username}")
+            return cached
 
         logger.debug(f"Scraping profil: @{username}")
 
@@ -409,8 +414,8 @@ class ScraperEnricher:
                     is_blue_verified=bool(getattr(user, "is_blue_verified", False)),
                 )
 
-                # Mettre en cache
-                self._cache.set(profile.user_id, profile)
+                # Mettre en cache (clé = username, cohérent avec la lecture)
+                self._cache.set(username, profile)
                 self._cache.record_access(hit=False)
                 self.stats["scraped"] += 1
                 self.stats["success"] += 1
@@ -486,4 +491,7 @@ class ScraperEnricher:
             # None est silencieux (user non trouvé)
 
         logger.info(
-            f"Enrichissement terminé: {len(profiles)}/{len(unique_usernames)} enrichis,")
+            f"Enrichissement terminé: {len(profiles)}/"
+            f"{len(unique_usernames)} enrichis"
+        )
+        return profiles

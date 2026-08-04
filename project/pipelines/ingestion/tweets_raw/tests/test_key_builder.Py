@@ -1,108 +1,80 @@
-from project.pipelines.ingestion.tweets_raw.utils.key_builder import KeyBuilder
+from project.pipelines.ingestion.tweets_raw.utils.key_builder import (
+    KeyBuilder,
+)
+
+
+def _with_hashtags(tweet: dict, tags: list) -> dict:
+    """Renvoie une copie du tweet dont entities.hashtags porte ``tags``.
+
+    Parameters
+    ----------
+    tweet : dict
+        Tweet de base (schéma X API v2).
+    tags : list
+        Liste de tags (chaînes) à injecter dans entities.hashtags.
+
+    Returns
+    -------
+    dict
+        Copie du tweet avec le schéma imbriqué entities.hashtags renseigné.
+    """
+    clone = dict(tweet)
+    clone["entities"] = {"hashtags": [{"tag": t} for t in tags]}
+    clone.pop("hashtags", None)
+    return clone
 
 
 class TestKeyBuilder:
 
-    def test_extracts_club_from_hashtags_psg(
-        self,
-        valid_tweet: dict
+    def test_extracts_club_from_entities_psg(self, valid_tweet: dict) -> None:
+        """PSG présent dans entities.hashtags → clé b"PSG"."""
+        tweet = _with_hashtags(valid_tweet, ["Ligue1", "PSG"])
+        assert KeyBuilder().build(tweet) == b"PSG"
+
+    def test_extracts_club_from_entities_om(self, valid_tweet: dict) -> None:
+        """OM présent dans entities.hashtags → clé b"OM"."""
+        tweet = _with_hashtags(valid_tweet, ["Ligue1", "OM"])
+        assert KeyBuilder().build(tweet) == b"OM"
+
+    def test_key_is_bytes(self, valid_tweet: dict) -> None:
+        """La clé retournée est toujours de type bytes."""
+        assert isinstance(KeyBuilder().build(valid_tweet), bytes)
+
+    def test_detects_club_case_insensitive(self, valid_tweet: dict) -> None:
+        """La détection du club est insensible à la casse."""
+        tweet = _with_hashtags(valid_tweet, ["ligue1", "ogcnice"])
+        assert KeyBuilder().build(tweet) == b"OGCNICE"
+
+    def test_fallback_ligue1_when_no_club_found(
+        self, valid_tweet: dict
     ) -> None:
-        """
-        This test checks that the KeyBuilder correctly extracts the club
-        name from the hashtags when PSG is present.
-        Args:
-            - valid_tweet (dict): A fixture that provides
-            a valid tweet dictionary.
-        """
-        tweet = valid_tweet.copy()
-        tweet["hashtags"] = ["Ligue1", "PSG"]
-        builder = KeyBuilder()
-        assert builder.build(tweet) == b"PSG"
+        """Repli sur b"Ligue1" si aucun hashtag ne matche un club."""
+        tweet = _with_hashtags(valid_tweet, ["football", "VAR"])
+        assert KeyBuilder().build(tweet) == b"Ligue1"
 
-    def test_extracts_club_from_hashtags_om(
-        self,
-        valid_tweet: dict
+    def test_fallback_ligue1_when_empty_hashtags(
+        self, valid_tweet: dict
     ) -> None:
-        """
-        This test checks that the KeyBuilder correctly extracts the club
-        name from the hashtags when OM is present.
+        """Repli sur b"Ligue1" si entities.hashtags est vide."""
+        tweet = _with_hashtags(valid_tweet, [])
+        assert KeyBuilder().build(tweet) == b"Ligue1"
 
-        Args:
-            - valid_tweet (dict): A fixture that provides a valid tweet
-            dictionary.
-        """
-        tweet = valid_tweet.copy()
-        tweet["hashtags"] = ["Ligue1", "OM"]
-        builder = KeyBuilder()
-        assert builder.build(tweet) == b"OM"
+    def test_fallback_ligue1_when_entities_missing(
+        self, valid_tweet: dict
+    ) -> None:
+        """Repli sur b"Ligue1" si le tweet n'a ni entities ni hashtags."""
+        tweet = dict(valid_tweet)
+        tweet.pop("entities", None)
+        tweet.pop("hashtags", None)
+        assert KeyBuilder().build(tweet) == b"Ligue1"
 
-    def test_key_is_bytes(self, valid_tweet: dict):
-        """
-        This test checks that the key returned by the KeyBuilder
-         is of type bytes.
-        Args:
-            - valid_tweet (dict): A fixture that provides a valid tweet
-            dictionary.
-        """
-        builder = KeyBuilder()
-        result = builder.build(valid_tweet)
-        assert isinstance(result, bytes)
+    def test_first_club_wins_when_multiple(self, valid_tweet: dict) -> None:
+        """Le premier club rencontré l'emporte si plusieurs sont présents."""
+        tweet = _with_hashtags(valid_tweet, ["PSG", "OM", "Ligue1"])
+        assert KeyBuilder().build(tweet) == b"PSG"
 
-    def test_detects_club_case_insensitive(self, valid_tweet):
-        """
-        This test checks that the KeyBuilder detects club names in a
-         case-insensitive manner.
-        Args:
-            - valid_tweet (dict): A fixture that provides a valid tweet
-            dictionary.
-        """
-        tweet = valid_tweet.copy()
-        tweet["hashtags"] = ["ligue1", "ogcnice"]
-        builder = KeyBuilder()
-        assert builder.build(tweet) == b"OGCNICE"
-
-    def test_fallback_ligue1_when_no_club_found(self, valid_tweet):
-        """
-        This test checks that the KeyBuilder falls back to 'Ligue1' when
-        no club name is present in the hashtags.
-
-        Args:
-            - valid_tweet (dict): A fixture that provides a valid tweet
-            dictionary.
-        """
-        tweet = valid_tweet.copy()
-        tweet["hashtags"] = ["football", "VAR"]
-        builder = KeyBuilder()
-        assert builder.build(tweet) == b"Ligue1"
-
-    def test_fallback_ligue1_when_empty_hashtags(self, valid_tweet):
-        """
-        This test checks that the KeyBuilder falls back to 'Ligue1' when
-         the hashtags list is empty.
-        Args:
-            - valid_tweet (dict): A fixture that provides a valid tweet
-            dictionary.
-        """
-        tweet = valid_tweet.copy()
-        tweet["hashtags"] = []
-        builder = KeyBuilder()
-        assert builder.build(tweet) == b"Ligue1"
-
-    def test_fallback_ligue1_when_hashtags_missing(self, valid_tweet):
-        """
-        This test checks that the KeyBuilder falls back to 'Ligue1' when
-         the hashtags key is missing from the tweet.
-        Args:
-            - valid_tweet (dict): A fixture that provides a valid tweet
-            dictionary.
-        """
-        tweet = valid_tweet.copy()
-        del tweet["hashtags"]
-        builder = KeyBuilder()
-        assert builder.build(tweet) == b"Ligue1"
-
-    def test_first_club_wins_when_multiple(self, valid_tweet):
-        tweet = valid_tweet.copy()
-        tweet["hashtags"] = ["PSG", "OM", "Ligue1"]  # PSG en premier
-        builder = KeyBuilder()
-        assert builder.build(tweet) == b"PSG"
+    def test_legacy_flat_hashtags_still_supported(self) -> None:
+        """Compat : l'ancien schéma plat ``hashtags`` est lu si entities
+        est absent."""
+        tweet = {"id": "1", "hashtags": ["Ligue1", "OM"]}
+        assert KeyBuilder().build(tweet) == b"OM"

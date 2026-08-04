@@ -2,12 +2,16 @@ from unittest.mock import MagicMock, patch, call
 import json
 import pytest
 
-from utils.s3_writer import S3RawWriter
+from project.pipelines.ingestion.tweets_raw.utils.s3_writer import (
+    S3RawWriter,
+)
 
 
 @pytest.fixture
 def writer():
-    with patch("utils.s3_writer.boto3.client") as mock_client:
+    with patch(
+        "project.pipelines.ingestion.tweets_raw.utils.s3_writer.boto3.client"
+    ) as mock_client:
         w = S3RawWriter(
             endpoint_url="http://localhost:9000",
             bucket="tweets-backup",
