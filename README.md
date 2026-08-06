@@ -1,182 +1,180 @@
 # Twitter Market Research — Data Platform (Lakehouse)
 
-Plateforme de données temps réel qui collecte, valide et stocke les tweets X
-(Twitter) autour de la **Ligue 1** pour de l'étude de marché (sentiment &
-engagement des clubs).
+A real-time data platform that collects, validates, and stores X (Twitter)
+tweets related to **Ligue 1** for market research purposes (sentiment &
+club engagement).
 
-Ce dépôt est **l'entrepôt de données (datawarehouse / lakehouse)** : toute la
-chaîne d'ingestion, de stockage et de traitement de la donnée. **Il ne contient
-pas de tableaux de bord métier** — uniquement le monitoring technique de la
-plateforme.
+This repository houses the **data warehouse / lakehouse**—covering the entire
+data ingestion, storage, and processing pipeline. **It does not contain
+business dashboards**—only technical monitoring for the platform.
 
 
 ---
 
-## Flux de données
+## Data Flow
 
 ```
-                 ┌─────────────────────────────────────────────┐
-   X API v2 ────►│              HybridExtractor                 │
-   (payant)      │   (collecte API + enrichissement profils)   │
-   twikit  ─────►│                                             │
-   (scraping)    └───────────────────┬─────────────────────────┘
-                                     │  validation + sérialisation
-                                     ▼
-                          ┌──────────────────────┐
-                          │   Kafka (3 brokers)   │
-                          ├──────────────────────┤
-       tweets valides ───►│  topic: tweets_raw    │───┐
-       tweets rejetés ───►│  topic: audit_logs    │   │
-                          └──────────────────────┘   │
-                                     │                │
-        backup direct (S3RawWriter)  │                │  Kafka Connect
-                                     ▼                ▼  (sink S3)
-                          ┌──────────────────────────────────────┐
-                          │      Object storage (MinIO / S3)      │
-                          │        données brutes (source de      │
-                          │              vérité)                  │
-                          └──────────────────────────────────────┘
-                                     │
-                                     ▼   (TODO)
-                        Processing (Spark) ──► MongoDB (serving)
+┌─────────────────────────────────────────────┐
+X API v2 ────►│              HybridExtractor                 │
+(paid)        │   (API collection + profile enrichment)     │
+twikit  ─────►│                                             │
+(scraping)    └───────────────────┬─────────────────────────┘
+│  validation + serialization
+▼
+┌──────────────────────┐
+│   Kafka (3 brokers)   │
+├──────────────────────┤
+valid tweets ─────►│  topic: tweets_raw    │───┐
+rejected tweets ──►│  topic: audit_logs    │   │
+└──────────────────────┘   │
+│                │
+direct backup (S3RawWriter)  │                │  Kafka Connect
+▼                ▼  (S3 sink)
+┌──────────────────────────────────────┐
+│      Object storage (MinIO / S3)      │
+│        raw data (source of            │
+│              truth)                   │
+└──────────────────────────────────────┘
+│
+▼   (TODO)
+Processing (Spark) ──► MongoDB (serving)
 ```
 
-Observabilité : chaque broker expose ses métriques JMX en HTTP (agent
-Prometheus), scrapées par **Prometheus**, avec alerting via **AlertManager**.
+Observability: each broker exposes its JMX metrics via HTTP (Prometheus
+agent), which are scraped by **Prometheus**, with alerting handled by
+**AlertManager**. ---
+
+## Tech Stack
+
+- **Collection**: X API v2 (`requests`) + `twikit` (profile scraping)
+- **Streaming**: Apache Kafka (Confluent 7.5, 3 brokers + ZooKeeper)
+- **Raw storage**: MinIO (S3-compatible), populated via Kafka Connect (S3 sink)
+- **Serving**: MongoDB *(integration pending)*
+- **Processing**: Apache Spark *(pending)*
+- **Monitoring**: Prometheus + AlertManager + JMX exporter
+- **Serialization / validation**: `pydantic`
+- **Language**: Python 3.12
+- **Docs**: Sphinx (`docs/`)
 
 ---
 
-## Stack technique
-
-- **Collecte** : X API v2 (`requests`) + `twikit` (scraping de profils)
-- **Streaming** : Apache Kafka (Confluent 7.5, 3 brokers + ZooKeeper)
-- **Stockage brut** : MinIO (S3-compatible), alimenté par Kafka Connect (S3 sink)
-- **Serving** : MongoDB *(intégration à venir)*
-- **Traitement** : Apache Spark *(à venir)*
-- **Monitoring** : Prometheus + AlertManager + JMX exporter
-- **Sérialisation / validation** : `pydantic`
-- **Langage** : Python 3.12
-- **Docs** : Sphinx (`docs/`)
-
----
-
-## Structure du dépôt
+## Repository Structure
 
 ```
 project/pipelines/
-  ingestion/
-    tweets_raw/          # Pipeline principale (opérationnelle, testée)
-      utils/             # api_extractor, hybrid_extractor, kafka_producer,
-                         # key_builder, tweet_validator, tweet_serializer,
-                         # s3_writer, scraper_enricher, metrics
-      tests/             # Suite pytest (91 tests)
-      extract.py         # Point d'entrée CLI de la collecte
-    audit_logs/          # Pipeline des rejets (partielle)
-  processing/            # Traitement Spark (à venir)
-  dashboard/             # (vide — les dashboards vivent dans le dépôt n°3)
+ingestion/
+tweets_raw/          # Main pipeline (operational, tested)
+utils/             # api_extractor, hybrid_extractor, kafka_producer,
+# key_builder, tweet_validator, tweet_serializer,
+# s3_writer, scraper_enricher, metrics
+tests/             # pytest suite (91 tests)
+extract.py         # CLI entry point for collection
+audit_logs/          # Rejection pipeline (partial)
+processing/            # Spark processing (pending)
+dashboard/             # (empty — dashboards reside in repo #3)
 
-iac/dev/                 # Infra de dev (destinée au dépôt IaC)
-  kafka/                 # Cluster Kafka + monitoring (Prometheus/AlertManager)
-  storage/S3/            # MinIO + Kafka Connect (sink S3)
-  storage/mongodb/       # MongoDB
-  ingestion/             # Conteneur du producer
-  spark/                 # Spark (à venir)
+iac/dev/                 # Dev infra (intended for IaC repo)
+kafka/                 # Kafka cluster + monitoring (Prometheus/AlertManager)
+storage/S3/            # MinIO + Kafka Connect (S3 sink)
+storage/mongodb/       # MongoDB
+ingestion/             # Producer container
+spark/                 # Spark (pending)
 
-docs/                    # Documentation Sphinx
+docs/                    # Sphinx documentation
 ```
 
 ---
 
-## Démarrage rapide
+## Quick Start
 
-### Prérequis
+### Prerequisites
 
 - Docker + Docker Compose
 - Python 3.12
-- Un Bearer Token X API v2 (et, optionnellement, un `auth_token` twikit)
+- An X API v2 Bearer Token (and, optionally, a twikit `auth_token`)
 
-### 1. Configurer les secrets
+### 1. Configure secrets
 
-Copier le gabarit et renseigner les vraies valeurs (le fichier réel est
-ignoré par git) :
+Copy the template and fill in the actual values ​​(the actual file is
+ignored by git) :
 
 ```bash
 cp iac/.env.dist iac/.env.dev
-# éditer iac/.env.dev : TWITTER_BEARER_TOKEN, TWIKIT_AUTH_TOKEN, ...
+# edit iac/.env.dev: TWITTER_BEARER_TOKEN, TWIKIT_AUTH_TOKEN, ...
 ```
 
-> ⚠️ Ne jamais committer de secret réel. Les vraies valeurs vont dans
-> `iac/.env.dev` (gitignoré), pas dans `iac/.env.dist`.
+> ⚠️ Never commit actual secrets. Real values ​​go into
+> `iac/.env.dev` (git-ignored), not `iac/.env.dist`.
 
-### 2. Lancer l'infrastructure
+### 2. Launch the infrastructure
 
 ```bash
 cd iac/dev
 docker compose up -d --build
 ```
 
-Cela démarre : le cluster Kafka (3 brokers + ZooKeeper), l'UI Kafka, MinIO,
-Prometheus et AlertManager, et crée les topics (`tweets_raw`,
+This starts: the Kafka cluster (3 brokers + ZooKeeper), Kafka UI, MinIO,
+Prometheus, and AlertManager, and creates the topics (`tweets_raw`,
 `tweets_enriched`, `audit_logs`).
 
-### 3. Lancer une collecte
+### 3. Start a collection
 
 ```bash
 cd project/pipelines/ingestion/tweets_raw
 python extract.py --keywords "Ligue1 OR PSG OR OM" --max-results 250
 ```
 
-Options utiles : `--no-scrape` (API seule), `--skip-kafka` (mode test),
-`--skip-s3`, `--verbose`. Voir `python extract.py --help`.
+Useful options: `--no-scrape` (API only), `--skip-kafka` (test mode),
+`--skip-s3`, `--verbose`. See `python extract.py --help`.
 
 ---
 
-## Interfaces web
+## Web interfaces
 
-| Service | URL | Rôle |
+| Service | URL | Role |
 |---------|-----|------|
-| Kafka UI | http://localhost:8080 | Explorer topics & messages |
-| Prometheus | http://localhost:9090 | Métriques & règles d'alerte (`/targets`, `/rules`) |
-| AlertManager | http://localhost:9095 | Alertes actives |
-| MinIO (console) | http://localhost:9001 | Console object storage (API S3 sur :9000) |
+| Kafka UI | http://localhost:8080 | Explore topics & messages |
+| Prometheus | http://localhost:9090 | Metrics & alert rules (`/targets`, `/rules`) |
+| AlertManager | http://localhost:9095 | Active alerts |
+| MinIO (Console) | http://localhost:9001 | Object storage console (S3 API on :9000) |
 
 ---
 
 ## Tests
 
-La suite utilise un environnement virtuel dédié.
+The suite uses a dedicated virtual environment.
 
 ```bash
 python -m venv project/.venv
 project/.venv/Scripts/python -m pip install -r \
-    project/pipelines/ingestion/requirements.txt pytest pytest-cov
+project/pipelines/ingestion/requirements.txt pytest pytest-cov
 
-# Lancer la suite tweets_raw
+# Run the tweets_raw suite
 project/.venv/Scripts/python -m pytest project/pipelines/ingestion/tweets_raw/tests/
 ```
 
-État actuel : **91 tests verts** sur la pipeline `tweets_raw`.
+Current status: **91 passing tests** for the `tweets_raw` pipeline.
 
 ---
 
 ## Conventions
 
-- **TDD** : test d'abord (rouge → vert).
-- **Docstrings NumPy** (`Parameters` / `Returns`) sur les fonctions.
-- **Commits** : Conventional Commits (`fix:`, `feat:`, `docs:` …).
-- **Secrets** : jamais en dur, toujours via `iac/.env.dev` (gitignoré).
+- **TDD**: Test-first (red → green).
+- **NumPy docstrings** (`Parameters` / `Returns`) for functions.
+- **Commits**: Conventional Commits (`fix:`, `feat:`, `docs:` …).
+- **Secrets**: Never hardcoded; always via `iac/.env.dev` (git-ignored).
 
 ---
 
-## État du projet
+## Project Status
 
-| Composant | Statut |
+| Component | Status |
 |-----------|--------|
-| Ingestion `tweets_raw` (collecte, validation, Kafka, backup S3) | ✅ Opérationnel, testé |
-| Cluster Kafka (3 brokers, topics, rétention) | ✅ |
-| Sink S3 (Kafka Connect → MinIO) | ✅ Configuré |
-| Monitoring (Prometheus / AlertManager / JMX) | ✅ Opérationnel |
-| Pipeline `audit_logs` | 🚧 Partielle |
-| Intégration MongoDB (serving) | ⬜ À venir |
-| Traitement Spark | ⬜ À venir |
-| CI/CD (GitLab) | 🚧 Squelette |
+| Ingestion `tweets_raw` (collection, validation, Kafka, S3 backup) | ✅ Operational, tested |
+| Kafka cluster (3 brokers, topics, retention) | ✅ |
+| S3 Sink (Kafka Connect → MinIO) | ✅ Configured |
+| Monitoring (Prometheus / AlertManager / JMX) | ✅ Operational |
+| `audit_logs` pipeline | 🚧 Partial |
+| MongoDB integration (serving) | ⬜ Upcoming |
+| Spark processing | ⬜ Upcoming |
+| CI/CD (GitLab) | 🚧 Skeleton |
