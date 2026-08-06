@@ -13,32 +13,7 @@ business dashboards**—only technical monitoring for the platform.
 
 ## Data Flow
 
-```
-┌─────────────────────────────────────────────┐
-X API v2 ────►│              HybridExtractor                 │
-(paid)        │   (API collection + profile enrichment)     │
-twikit  ─────►│                                             │
-(scraping)    └───────────────────┬─────────────────────────┘
-│  validation + serialization
-▼
-┌──────────────────────┐
-│   Kafka (3 brokers)   │
-├──────────────────────┤
-valid tweets ─────►│  topic: tweets_raw    │───┐
-rejected tweets ──►│  topic: audit_logs    │   │
-└──────────────────────┘   │
-│                │
-direct backup (S3RawWriter)  │                │  Kafka Connect
-▼                ▼  (S3 sink)
-┌──────────────────────────────────────┐
-│      Object storage (MinIO / S3)      │
-│        raw data (source of            │
-│              truth)                   │
-└──────────────────────────────────────┘
-│
-▼   (TODO)
-Processing (Spark) ──► MongoDB (serving)
-```
+![Architecture globale du projet — les 3 dépôts](architechture.png)
 
 Observability: each broker exposes its JMX metrics via HTTP (Prometheus
 agent), which are scraped by **Prometheus**, with alerting handled by
