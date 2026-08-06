@@ -1,15 +1,58 @@
 # tests/conftest.py
+import asyncio
+import inspect
+
 import pytest
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Support des tests `async def` sans dépendance externe.
+#
+# L'environnement n'a pas `pytest-asyncio` (et pas d'accès réseau pour
+# l'installer). Ce hook exécute toute fonction de test coroutine via
+# `asyncio.run()`. À supprimer si `pytest-asyncio` est ajouté aux
+# dépendances de dev.
+# ─────────────────────────────────────────────────────────────────────
+
+def pytest_configure(config):
+    """Enregistre le marqueur `asyncio` pour éviter le warning inconnu."""
+    config.addinivalue_line(
+        "markers",
+        "asyncio: exécute le test via asyncio.run (fallback sans "
+        "pytest-asyncio)",
+    )
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_pyfunc_call(pyfuncitem):
+    """Exécute les tests coroutine ; laisse pytest gérer les tests sync.
+
+    Parameters
+    ----------
+    pyfuncitem : pytest.Function
+        L'item de test que pytest s'apprête à appeler.
+
+    Returns
+    -------
+    Optional[bool]
+        True si le test coroutine a été exécuté ici (court-circuite
+        l'appel standard), None sinon (test synchrone laissé à pytest).
+    """
+    func = pyfuncitem.obj
+    if inspect.iscoroutinefunction(func):
+        argnames = pyfuncitem._fixtureinfo.argnames
+        kwargs = {name: pyfuncitem.funcargs[name] for name in argnames}
+        asyncio.run(func(**kwargs))
+        return True
+    return None
 
 
 @pytest.fixture
 def valid_tweet():
-    """Tweet au schéma X API v2 (imbriqué), tel que renvoyé par search_tweets().
+    """Tweet au schéma X API v2 (imbriqué), tel que produit par l'API.
 
-    NB transition (dette #B) : le champ plat ``hashtags`` est dupliqué à côté de
-    ``entities.hashtags`` pour que KeyBuilder (qui lit encore le champ plat)
-    reste testable tant que sa migration vers ``entities.hashtags`` n'est pas
-    faite. La donnée réelle de l'API ne contient QUE ``entities.hashtags``.
+    Les hashtags sont dans ``entities.hashtags[].tag`` — le schéma réel de
+    l'API X v2, désormais lu de bout en bout (Serializer et KeyBuilder).
     """
     return {
         "id": "1891234567890",
@@ -30,14 +73,12 @@ def valid_tweet():
                 {"tag": "VAR"},
             ]
         },
-        # --- champ plat de transition (dette #B) ---
-        "hashtags": ["Ligue1", "OM", "VAR"],
     }
 
 
 @pytest.fixture
 def invalid_tweet_missing_fields():
-    """Tweet incomplet : il manque created_at, lang, author_id, public_metrics."""
+    """Tweet incomplet : created_at, lang, author_id, metrics absents."""
     return {
         "id": "1891234567890",
         "text": "Super match !",

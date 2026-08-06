@@ -80,7 +80,7 @@ class SearchConfig:
     expansions: List[str] = field(default_factory=lambda: ["author_id"])
     tweet_fields: List[str] = field(default_factory=lambda: [
         "created_at", "public_metrics", "lang", "text", "id",
-        "author_id", "context_annotations"
+        "author_id", "context_annotations", "entities",
     ])
     user_fields: List[str] = field(default_factory=lambda: [
         "username", "name", "verified", "public_metrics"
@@ -391,6 +391,11 @@ class APIExtractor:
             if not next_token:
                 logger.debug("Dernière page atteinte (pas de next_token)")
                 break
+
+        # Filet de sécurité budget : ne jamais dépasser max_results, même si
+        # l'API renvoie plus que demandé sur la dernière page.
+        if len(all_tweets) > self._config.max_results:
+            all_tweets = all_tweets[:self._config.max_results]
 
         # Mettre à jour le compteur budget
         tweets_count = len(all_tweets)

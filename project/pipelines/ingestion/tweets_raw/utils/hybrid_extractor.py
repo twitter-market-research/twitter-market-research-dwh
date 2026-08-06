@@ -507,14 +507,20 @@ class HybridExtractor:
         """
         Valide les tweets enrichis via TweetValidator.
 
+        On teste ``ValidationResult.is_valid`` et non l'objet lui-même : un
+        ``ValidationResult`` (dataclass) est toujours truthy, donc tester sa
+        vérité laissait passer tous les tweets (bug A).
+
         Returns
         -------
         Dict[str, Any]
-            {
-                "valid": int,           # nombre de tweets valides
-                "invalid": int,         # nombre de tweets invalides
-                "tweets": List[Dict],   # tweets valides
-            }
+            Dictionnaire de la forme ::
+
+                {
+                    "valid": int,           # nombre de tweets valides
+                    "invalid": int,         # nombre de tweets invalides
+                    "tweets": List[Dict],   # tweets valides uniquement
+                }
         """
         if not self._enriched_tweets:
             return {"valid": 0, "invalid": 0, "tweets": []}
@@ -523,7 +529,7 @@ class HybridExtractor:
         invalid_count = 0
 
         for tweet in self._enriched_tweets:
-            if self._validator.validate(tweet):
+            if self._validator.validate(tweet).is_valid:
                 valid_tweets.append(tweet)
             else:
                 invalid_count += 1

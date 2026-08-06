@@ -1,11 +1,31 @@
 # tests/test_api_extractor.py
 import pytest
 from unittest.mock import patch, MagicMock
-from datetime import datetime, timedelta
 
 from project.pipelines.ingestion.tweets_raw.utils.api_extractor import (
     APIExtractor, SearchConfig, APIError
 )
+
+
+def _make_mock_response(status_code, json_data):
+    """Construit une réponse HTTP mockée (façon requests.Response).
+
+    Parameters
+    ----------
+    status_code : int
+        Code HTTP simulé (ex: 200).
+    json_data : dict
+        Charge utile renvoyée par ``response.json()``.
+
+    Returns
+    -------
+    MagicMock
+        Mock exposant ``status_code`` et ``json()``.
+    """
+    response = MagicMock()
+    response.status_code = status_code
+    response.json.return_value = json_data
+    return response
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -99,7 +119,7 @@ class TestAPIExtractorInit:
 class TestAPIExtractorSearchTweets:
     """Recherche de tweets via l'API X — fonction core"""
 
-    @patch("src.extract.api_extractor.requests.get")
+    @patch("project.pipelines.ingestion.tweets_raw.utils.api_extractor.requests.get")
     def test_search_tweets_hits_correct_endpoint(self, mock_get):
         """L'endpoint /2/tweets/search/recent est appelé"""
         mock_response = MagicMock()
@@ -117,7 +137,7 @@ class TestAPIExtractorSearchTweets:
         url = mock_get.call_args[0][0]
         assert "api.x.com/2/tweets/search/recent" in url
 
-    @patch("src.extract.api_extractor.requests.get")
+    @patch("project.pipelines.ingestion.tweets_raw.utils.api_extractor.requests.get")
     def test_search_tweets_sends_authorization_header(self, mock_get):
         """Le header Authorization: Bearer <token> est envoyé"""
         mock_response = MagicMock()
@@ -134,7 +154,7 @@ class TestAPIExtractorSearchTweets:
         headers = mock_get.call_args[1]["headers"]
         assert headers["Authorization"] == "Bearer AAAAAAAAAAAAAAAAAAAAAFAKE"
 
-    @patch("src.extract.api_extractor.requests.get")
+    @patch("project.pipelines.ingestion.tweets_raw.utils.api_extractor.requests.get")
     def test_search_tweets_passes_query_params(self, mock_get):
         """Les params sont : query, max_results, expansions, tweet.fields"""
         mock_response = MagicMock()
@@ -155,11 +175,13 @@ class TestAPIExtractorSearchTweets:
 
         params = mock_get.call_args[1]["params"]
         assert "Ligue1" in params["query"]
-        assert params["max_results"] == 250
-        assert params["lang"] == "fr"
+        # L'API X v2 plafonne max_results à 100 par requête.
+        assert params["max_results"] == 100
+        # Le filtre de langue est injecté dans la query (lang:fr), pas en param.
+        assert "lang:fr" in params["query"]
         assert params["start_time"] == "2026-03-28T00:00:00Z"
 
-    @patch("src.extract.api_extractor.requests.get")
+    @patch("project.pipelines.ingestion.tweets_raw.utils.api_extractor.requests.get")
     def test_search_tweets_passes_expansions_and_fields(self, mock_get):
         """Les expansions et tweet.fields sont passés en params"""
         mock_response = MagicMock()
@@ -181,7 +203,18 @@ class TestAPIExtractorSearchTweets:
         assert "created_at" in params["tweet.fields"]
         assert "public_metrics" in params["tweet.fields"]
 
-    @patch("src.extract.api_extractor.requests.get")
+    def test_default_config_requests_entities_for_hashtags(self):
+        """Le schéma par défaut doit demander `entities`.
+
+        Sans ce champ, l'API X ne renvoie pas `entities.hashtags`, et donc le
+        Serializer produit des hashtags vides et le KeyBuilder tombe toujours
+        sur la clé de repli (bug B).
+        """
+        config = SearchConfig()
+
+        assert "entities" in config.tweet_fields
+
+    @patch("project.pipelines.ingestion.tweets_raw.utils.api_extractor.requests.get")
     def test_search_tweets_returns_list_of_tweets(self, mock_get):
         """Retourne une liste de dicts (tweets bruts)"""
         expected_data = [
@@ -200,7 +233,7 @@ class TestAPIExtractorSearchTweets:
         assert len(result) == 2
         assert result[0]["id"] == "1"
 
-    @patch("src.extract.api_extractor.requests.get")
+    @patch("project.pipelines.ingestion.tweets_raw.utils.api_extractor.requests.get")
     def test_search_tweets_returns_empty_list_when_no_data(self, mock_get):
         """Réponse sans clé 'data' retourne liste vide"""
         mock_response = MagicMock()
@@ -213,7 +246,7 @@ class TestAPIExtractorSearchTweets:
 
         assert result == []
 
-    @patch("src.extract.api_extractor.requests.get")
+    @patch("project.pipelines.ingestion.tweets_raw.utils.api_extractor.requests.get")
     def test_search_tweets_handles_http_error_gracefully(self, mock_get):
         """Une erreur HTTP retourne liste vide (pas d'exception non gérée)"""
         mock_response = MagicMock()
@@ -225,7 +258,7 @@ class TestAPIExtractorSearchTweets:
 
         assert result == []
 
-    @patch("src.extract.api_extractor.requests.get")
+    @patch("project.pipelines.ingestion.tweets_raw.utils.api_extractor.requests.get")
     def test_search_tweets_raises_on_401_unauthorized(self, mock_get):
         """Erreur 401 lève une APIError spécifique"""
         mock_response = MagicMock()
@@ -238,7 +271,7 @@ class TestAPIExtractorSearchTweets:
         with pytest.raises(APIError, match="401"):
             extractor.search_tweets()
 
-    @patch("src.extract.api_extractor.requests.get")
+    @patch("project.pipelines.ingestion.tweets_raw.utils.api_extractor.requests.get")
     def test_search_tweets_raises_on_403_forbidden(self, mock_get):
         """Erreur 403 lève une APIError spécifique"""
         mock_response = MagicMock()
@@ -250,7 +283,7 @@ class TestAPIExtractorSearchTweets:
         with pytest.raises(APIError, match="403"):
             extractor.search_tweets()
 
-    @patch("src.extract.api_extractor.requests.get")
+    @patch("project.pipelines.ingestion.tweets_raw.utils.api_extractor.requests.get")
     def test_search_tweets_logs_on_429_rate_limit(self, mock_get, caplog):
         """Erreur 429 est loggée mais ne lève pas d'exception"""
         import logging
@@ -267,7 +300,7 @@ class TestAPIExtractorSearchTweets:
         assert result == []
         assert any("429" in msg for msg in caplog.messages)
 
-    @patch("src.extract.api_extractor.requests.get")
+    @patch("project.pipelines.ingestion.tweets_raw.utils.api_extractor.requests.get")
     def test_search_tweets_extracts_author_ids_from_response(self, mock_get):
         """Les author_id sont extraits des tweets retournés"""
         mock_response = MagicMock()
@@ -296,7 +329,7 @@ class TestAPIExtractorSearchTweets:
 class TestAPIExtractorPagination:
     """Gestion de la pagination (next_token)"""
 
-    @patch("src.extract.api_extractor.requests.get")
+    @patch("project.pipelines.ingestion.tweets_raw.utils.api_extractor.requests.get")
     def test_search_tweets_handles_next_token_pagination(self, mock_get):
         """Si next_token est présent, une 2e requête est faite"""
         first_response = {
@@ -322,7 +355,7 @@ class TestAPIExtractorPagination:
         second_call_params = mock_get.call_args_list[1][1]["params"]
         assert second_call_params["pagination_token"] == "ABC123"
 
-    @patch("src.extract.api_extractor.requests.get")
+    @patch("project.pipelines.ingestion.tweets_raw.utils.api_extractor.requests.get")
     def test_search_tweets_limits_pagination_to_avoid_budget(self, mock_get):
         """La pagination s'arrête à max_results (250) pour protéger le budget"""
         def mock_responses(*args, **kwargs):
@@ -356,7 +389,7 @@ class TestAPIExtractorPagination:
 class TestAPIExtractorBudgetTracking:
     """Tracking des coûts API pour respecter le budget de 25$"""
 
-    @patch("src.extract.api_extractor.requests.get")
+    @patch("project.pipelines.ingestion.tweets_raw.utils.api_extractor.requests.get")
     def test_extractor_tracks_tweets_fetched_count(self, mock_get):
         """Le nombre de tweets fetchés est tracké"""
         mock_response = MagicMock()
@@ -372,7 +405,7 @@ class TestAPIExtractorBudgetTracking:
 
         assert extractor.tweets_fetched == 50
 
-    @patch("src.extract.api_extractor.requests.get")
+    @patch("project.pipelines.ingestion.tweets_raw.utils.api_extractor.requests.get")
     def test_extractor_estimates_cost(self, mock_get):
         """Le coût estimé est calculé (0.005$ par tweet)"""
         mock_response = MagicMock()
@@ -388,7 +421,7 @@ class TestAPIExtractorBudgetTracking:
 
         assert extractor.estimated_cost == pytest.approx(0.50, rel=0.01)
 
-    @patch("src.extract.api_extractor.requests.get")
+    @patch("project.pipelines.ingestion.tweets_raw.utils.api_extractor.requests.get")
     def test_extractor_warns_when_approaching_budget(self, mock_get, caplog):
         """Un warning est émis quand on approche 80% du budget"""
         import logging
@@ -407,7 +440,7 @@ class TestAPIExtractorBudgetTracking:
 
         assert any("budget" in msg.lower() for msg in caplog.messages)
 
-    @patch("src.extract.api_extractor.requests.get")
+    @patch("project.pipelines.ingestion.tweets_raw.utils.api_extractor.requests.get")
     def test_extractor_blocks_when_budget_exceeded(self, mock_get):
         """La recherche est bloquée si le budget de 25$ est dépassé"""
         mock_response = MagicMock()

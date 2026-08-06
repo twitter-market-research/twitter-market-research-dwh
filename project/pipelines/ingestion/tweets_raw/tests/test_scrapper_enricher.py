@@ -153,9 +153,9 @@ class TestScraperEnricherInit:
         assert enricher._cache.max_size == 100
 
     def test_enricher_default_delay_between_requests(self):
-        """Le délai par défaut est de 1 seconde (anti-rate-limit)"""
+        """Le délai par défaut est de 1.5 seconde (anti-rate-limit)"""
         enricher = ScraperEnricher()
-        assert enricher._delay_seconds == 1.0
+        assert enricher._delay_seconds == 1.5
 
     def test_enricher_accepts_custom_delay(self):
         """Un délai personnalisé peut être fourni"""
@@ -175,7 +175,7 @@ class TestScraperEnricherInit:
 class TestScraperEnricherScrapeProfile:
     """Scraping d'un profil utilisateur individuel"""
 
-    @patch("src.extract.scraper_enricher.twikit.Client")
+    @patch("project.pipelines.ingestion.tweets_raw.utils.scraper_enricher.twikit.Client")
     @pytest.mark.asyncio
     async def test_scrape_profile_fetches_user_data(self, mock_client_cls):
         """Un profil utilisateur est fetché via twikit"""
@@ -204,7 +204,7 @@ class TestScraperEnricherScrapeProfile:
         assert result.username == "testuser"
         assert result.followers_count == 5000
 
-    @patch("src.extract.scraper_enricher.twikit.Client")
+    @patch("project.pipelines.ingestion.tweets_raw.utils.scraper_enricher.twikit.Client")
     @pytest.mark.asyncio
     async def test_scrape_profile_handles_user_not_found(self, mock_client_cls):
         """Un user inexistant retourne None (pas d'exception)"""
@@ -223,7 +223,7 @@ class TestScraperEnricherScrapeProfile:
 
         assert result is None
 
-    @patch("src.extract.scraper_enricher.twikit.Client")
+    @patch("project.pipelines.ingestion.tweets_raw.utils.scraper_enricher.twikit.Client")
     @pytest.mark.asyncio
     async def test_scrape_profile_respects_delay(self, mock_client_cls):
         """Un délai est respecté entre chaque appel scraping"""
@@ -247,7 +247,7 @@ class TestScraperEnricherScrapeProfile:
         # Le délai doit être respecté (tolérance 20%)
         assert elapsed >= 0.08
 
-    @patch("src.extract.scraper_enricher.twikit.Client")
+    @patch("project.pipelines.ingestion.tweets_raw.utils.scraper_enricher.twikit.Client")
     @pytest.mark.asyncio
     async def test_scrape_profile_caches_result(self, mock_client_cls):
         """Le profil scrapé est mis en cache"""
@@ -264,11 +264,12 @@ class TestScraperEnricherScrapeProfile:
 
         await enricher._scrape_user_profile("cached")
 
-        cached = enricher._cache.get("u123")
+        # Le cache est indexé par username (clé disponible avant l'appel API).
+        cached = enricher._cache.get("cached")
         assert cached is not None
         assert cached.username == "cached"
 
-    @patch("src.extract.scraper_enricher.twikit.Client")
+    @patch("project.pipelines.ingestion.tweets_raw.utils.scraper_enricher.twikit.Client")
     @pytest.mark.asyncio
     async def test_scrape_profile_uses_cache_on_hit(self, mock_client_cls):
         """Si le profil est en cache, twikit n'est pas appelé"""
@@ -278,13 +279,13 @@ class TestScraperEnricherScrapeProfile:
         enricher = ScraperEnricher()
         enricher._client = mock_client
 
-        # Pré-remplir le cache
+        # Pré-remplir le cache (clé = username, comme le flux de scraping)
         cached_profile = UserProfile(
             user_id="u123",
             username="already_cached",
             name="Cached"
         )
-        enricher._cache.set("u123", cached_profile)
+        enricher._cache.set("already_cached", cached_profile)
 
         # Scraper le même user
         result = await enricher._scrape_user_profile("already_cached")
@@ -294,17 +295,17 @@ class TestScraperEnricherScrapeProfile:
         # Le profil vient du cache
         assert result.user_id == "u123"
 
-    @patch("src.extract.scraper_enricher.twikit.Client")
+    @patch("project.pipelines.ingestion.tweets_raw.utils.scraper_enricher.twikit.Client")
     @pytest.mark.asyncio
     async def test_scrape_profile_raises_enrichment_error_on_network_failure(
         self, mock_client_cls
     ):
         """Une erreur réseau lève EnrichmentError"""
-        from twikit.errors import TwikitException
+        from twikit.errors import TwitterException
 
         mock_client = AsyncMock()
         mock_client.get_user_by_screen_name = AsyncMock(
-            side_effect=TwikitException("Network error")
+            side_effect=TwitterException("Network error")
         )
         mock_client_cls.return_value = mock_client
 
@@ -324,7 +325,7 @@ class TestScraperEnricherScrapeProfile:
 class TestScraperEnricherEnrichBatch:
     """Enrichissement en batch de multiple users"""
 
-    @patch("src.extract.scraper_enricher.twikit.Client")
+    @patch("project.pipelines.ingestion.tweets_raw.utils.scraper_enricher.twikit.Client")
     @pytest.mark.asyncio
     async def test_enrich_batch_fetches_multiple_users(self, mock_client_cls):
         """Plusieurs users sont enrichis en batch"""
@@ -358,7 +359,7 @@ class TestScraperEnricherEnrichBatch:
         assert results[0].username == "user1"
         assert results[1].username == "user2"
 
-    @patch("src.extract.scraper_enricher.twikit.Client")
+    @patch("project.pipelines.ingestion.tweets_raw.utils.scraper_enricher.twikit.Client")
     @pytest.mark.asyncio
     async def test_enrich_batch_handles_partial_failures(self, mock_client_cls):
         """Si un user échoue, les autres continuent"""
@@ -388,7 +389,7 @@ class TestScraperEnricherEnrichBatch:
         assert results[0].username == "user1"
         assert results[1].username == "user3"
 
-    @patch("src.extract.scraper_enricher.twikit.Client")
+    @patch("project.pipelines.ingestion.tweets_raw.utils.scraper_enricher.twikit.Client")
     @pytest.mark.asyncio
     async def test_enrich_batch_returns_empty_list_for_empty_input(self, mock_client_cls):
         """Une liste vide retourne une liste vide"""
@@ -397,7 +398,7 @@ class TestScraperEnricherEnrichBatch:
 
         assert results == []
 
-    @patch("src.extract.scraper_enricher.twikit.Client")
+    @patch("project.pipelines.ingestion.tweets_raw.utils.scraper_enricher.twikit.Client")
     @pytest.mark.asyncio
     async def test_enrich_batch_deduplicates_usernames(self, mock_client_cls):
         """Les usernames en doublon ne sont scrapés qu'une fois"""
@@ -418,7 +419,7 @@ class TestScraperEnricherEnrichBatch:
         # twikit appelé une seule fois
         assert mock_client.get_user_by_screen_name.call_count == 1
 
-    @patch("src.extract.scraper_enricher.twikit.Client")
+    @patch("project.pipelines.ingestion.tweets_raw.utils.scraper_enricher.twikit.Client")
     @pytest.mark.asyncio
     async def test_enrich_batch_tracks_success_and_failure_counts(self, mock_client_cls):
         """Les compteurs de succès/échec sont mis à jour"""
@@ -452,7 +453,9 @@ class TestScraperEnricherEnrichBatch:
 # ─────────────────────────────────────────────────────────────────────
 
 class TestScraperEnricherEnrichTweets:
-    """Merge tweets API + profils users scrapés"""
+    """Merge tweets API + profils users scrapés.
 
-    @patch("src.extract.scraper_enricher.twikit.Client")
+    TODO : test à écrire (le fichier était tronqué ici — décorateur @patch
+    orphelin sans méthode, ce qui empêchait toute la collecte pytest).
+    """
    

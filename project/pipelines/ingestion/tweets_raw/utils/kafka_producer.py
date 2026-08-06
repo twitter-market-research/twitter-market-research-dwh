@@ -46,6 +46,18 @@ class TweetsRawProducer:
         tweets_topic: str,
         audit_topic: str,
     ) -> None:
+        """
+        Initialise le producer et sa configuration de livraison.
+
+        Parameters
+        ----------
+        brokers : str
+            Liste des brokers bootstrap (ex: ``"broker-1:29092,..."``).
+        tweets_topic : str
+            Topic de destination des tweets valides.
+        audit_topic : str
+            Topic de destination des événements d'audit (tweets rejetés).
+        """
         self._tweets_topic = tweets_topic
         self._audit_topic = audit_topic
 
@@ -65,6 +77,16 @@ class TweetsRawProducer:
         })
 
     def _on_delivery(self, err, msg) -> None:
+        """
+        Callback de livraison invoqué par librdkafka pour chaque message.
+
+        Parameters
+        ----------
+        err : Optional[KafkaError]
+            L'erreur de livraison, ou None si le message a été acquitté.
+        msg : Message
+            Le message concerné (topic, partition, offset, clé).
+        """
         if err:
             logger.error(
                 "ÉCHEC LIVRAISON: %s — topic=%s key=%s",
@@ -86,8 +108,17 @@ class TweetsRawProducer:
         """Produit un message avec gestion de la back-pressure (#15).
 
         Si la file locale de librdkafka est pleine, ``produce()`` lève
-        ``BufferError``. On draine la file via ``poll()`` puis on réessaie une
-        fois, au lieu de perdre le message.
+        ``BufferError``. On draine la file via ``poll()`` puis on réessaie
+        une fois, au lieu de perdre le message.
+
+        Parameters
+        ----------
+        topic : str
+            Topic Kafka de destination.
+        value : bytes
+            Charge utile sérialisée du message.
+        key : Optional[bytes]
+            Clé de partitionnement (peut être None).
         """
         try:
             self._producer.produce(
@@ -110,16 +141,18 @@ class TweetsRawProducer:
 
     def send(self, tweet: Dict[str, Any]) -> None:
         """
-        This function sends a tweet to the appropriate
-        Kafka topic based on its validity.
-        - if valid → topic tweets_raw
-        - else → topic audit_logs with validation errors
+        Route un tweet vers le topic Kafka approprié selon sa validité.
+
+        - valide   → topic tweets_raw
+        - invalide → topic audit_logs avec les erreurs de validation
 
         Une exception sur un tweet est isolée (loggée) et n'est PAS propagée,
         pour ne pas avorter le batch complet en amont (#14).
 
-        Args:
-            tweet (Dict[str, Any]): The tweet to be sent.
+        Parameters
+        ----------
+        tweet : Dict[str, Any]
+            Le tweet (schéma X API v2) à valider puis envoyer.
         """
         try:
             validation = self._validator.validate(tweet)
@@ -158,7 +191,15 @@ class TweetsRawProducer:
         tweet: Dict[str, Any],
         errors: list,
     ) -> None:
-        """Route un tweet invalide vers le topic d'audit avec ses erreurs."""
+        """Route un tweet invalide vers le topic d'audit avec ses erreurs.
+
+        Parameters
+        ----------
+        tweet : Dict[str, Any]
+            Le tweet rejeté, embarqué tel quel dans l'événement d'audit.
+        errors : list
+            Les messages d'erreur de validation.
+        """
         audit_event = {
             "type": "VALIDATION_ERROR",
             "source": "tweets_raw_producer",
@@ -178,12 +219,17 @@ class TweetsRawProducer:
 
     def flush(self, timeout: float = 10.0) -> int:
         """
-        This function flushes waiting messages.
+        Force l'envoi des messages en attente.
+
+        Parameters
+        ----------
+        timeout : float
+            Durée max d'attente en secondes (défaut: 10.0).
 
         Returns
         -------
         int
-            Nombre de messages encore en file après le timeout (0 = tout livré).
+            Messages encore en file après le timeout (0 = tout livré).
         """
         return self._producer.flush(timeout=timeout)
 

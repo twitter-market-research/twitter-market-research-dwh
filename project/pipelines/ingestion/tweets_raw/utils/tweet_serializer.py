@@ -1,34 +1,48 @@
 import json
 
-from pydantic import ValidationError
-
 
 class TweetSerializer:
     """
-    This class serializes/deserializes a tweet dictionary ↔ bytes (JSON UTF-8).
+    Sérialise/désérialise un tweet dict ↔ bytes (JSON UTF-8).
+
+    ``serialize`` ne fait pas qu'encoder : il **remodèle** le tweet brut de
+    l'API X v2 vers le schéma aplati attendu en aval (Kafka, S3), tout en
+    conservant l'original sous ``raw_payload``.
     """
 
     def serialize(self, raw_tweet: dict) -> bytes:
-        """"
-        This function serializes a tweet dictionary to bytes (JSON UTF-8).
-        Args:
-            raw_tweet (dict): The raw tweet dictionary to serialize.
-        Returns:
-            bytes: The serialized tweet as bytes.
         """
+        Sérialise un tweet vers le schéma aplati (bytes JSON UTF-8).
+
+        Parameters
+        ----------
+        raw_tweet : dict
+            Tweet brut au schéma X API v2 (doit contenir un champ ``id``).
+
+        Returns
+        -------
+        bytes
+            Le tweet remodelé, encodé en JSON UTF-8.
+
+        Raises
+        ------
+        ValueError
+            Si l'entrée n'est pas un dict, ou si le champ ``id`` est absent.
+        """
+        if not isinstance(raw_tweet, dict):
+            raise ValueError("Le tweet à sérialiser doit être un dict")
+
         # 1. tweet_id → vient de 'id'
         tweet_id = raw_tweet.get("id")
         if not tweet_id:
-            raise ValidationError("Champ manquant : tweet_id")
+            raise ValueError("Champ manquant : id")
 
         # 2. Texte du tweet
         text = raw_tweet.get("text", "")
 
-        # 3. like_count → vient de public_metrics.like_count
+        # 3/4. Compteurs → depuis public_metrics
         public_metrics = raw_tweet.get("public_metrics", {})
         like_count = public_metrics.get("like_count", 0)
-
-        # 4. retweet_count → vient de public_metrics.retweet_count
         retweet_count = public_metrics.get("retweet_count", 0)
 
         # 5. hashtags → à extraire de entities.hashtags[].tag
@@ -36,13 +50,9 @@ class TweetSerializer:
         hashtags_list = entities.get("hashtags", [])
         hashtags = [h.get("tag") for h in hashtags_list if h.get("tag")]
 
-        # 6. created_at
+        # 6/7/8. Autres champs
         created_at = raw_tweet.get("created_at", "")
-
-        # 7. author_id
         author_id = raw_tweet.get("author_id", "")
-
-        # 8. language
         lang = raw_tweet.get("lang", "unknown")
 
         return json.dumps({
@@ -59,12 +69,22 @@ class TweetSerializer:
 
     def deserialize(self, data: bytes) -> dict:
         """
-        This function deserializes bytes (JSON UTF-8)
-        back to a tweet dictionary.
-        Args:
-            data (bytes): The bytes to deserialize.
-        Returns:
-            dict: The deserialized tweet dictionary.
+        Désérialise des bytes (JSON UTF-8) vers un dict.
+
+        Parameters
+        ----------
+        data : bytes
+            Charge utile JSON encodée en UTF-8.
+
+        Returns
+        -------
+        dict
+            Le tweet remodelé (tel que produit par ``serialize``).
+
+        Raises
+        ------
+        ValueError
+            Si les bytes ne sont pas du JSON UTF-8 valide.
         """
         try:
             return json.loads(data.decode("utf-8"))
