@@ -13,10 +13,8 @@ business dashboards**—only technical monitoring for the platform.
 
 ## Data Flow
 
-```
 ![Uploading archi-twitter.png…]()
 
-```
 
 Observability: each broker exposes its JMX metrics via HTTP (Prometheus
 agent), which are scraped by **Prometheus**, with alerting handled by
