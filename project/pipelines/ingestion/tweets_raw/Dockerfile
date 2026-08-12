@@ -19,7 +19,11 @@ COPY tweets_raw ./tweets_raw
 ENV PYTHONPATH=/app:/app/tweets_raw
 
 # create a non-root user and switch to that user for better security practices.
-RUN useradd -m -u 1000 appuser
+# /app/logs is owned by appuser so a fresh shared named volume mounted there
+# inherits appuser ownership (Docker copies the image dir ownership).
+RUN useradd -m -u 1000 appuser \
+    && mkdir -p /app/logs \
+    && chown -R appuser:appuser /app/logs
 USER appuser
 
 CMD ["python", "-m", "tweets_raw.extract", "--keywords", "PSG OR OM", "--max-results", "100"]
