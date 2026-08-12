@@ -16,21 +16,28 @@ services:
       - twitter-research-network
 
   broker-1:
-    image: confluentinc/cp-kafka:7.5.0
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: twitter-research/cp-kafka-jmx:7.5.0
     hostname: broker-1
     container_name: broker-1
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "broker-1:29092"]
-      interval: 10s
-      timeout: 5s
+      # KAFKA_OPTS='' : sinon le CLI hérite du -javaagent et tente de rebinder
+      # le port 7071 (déjà pris par le broker) → BindException → faux unhealthy.
+      test: ["CMD-SHELL", "KAFKA_OPTS='' kafka-broker-api-versions --bootstrap-server broker-1:29092"]
+      interval: 15s
+      timeout: 20s   # la JVM du CLI met ~5-6s à répondre
       retries: 5
+      start_period: 45s
     depends_on:
       - zookeeper
     ports:
       - "9092:9092"
       - "9101:9101"  # JMX
-      - "7071:7071"  # Prometheus metrics
+      # 7071 (métriques) NON publié sur l'hôte : Prometheus scrape broker-1:7071
+      # par le réseau interne. Évite les conflits de port hôte récurrents.
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
@@ -43,6 +50,8 @@ services:
       KAFKA_MIN_INSYNC_REPLICAS: 2
       KAFKA_JMX_PORT: 9101
       KAFKA_JMX_HOSTNAME: broker-1
+      # Charge l'agent JMX Prometheus : expose les métriques en HTTP sur :7071
+      KAFKA_OPTS: "-javaagent:/opt/jmx-exporter/jmx_prometheus_javaagent.jar=7071:/etc/kafka/jmx-exporter.yml"
     volumes:
       - broker-1-data:/var/lib/kafka/data
       - ./monitoring/jmx-exporter/kafka-broker.yml:/etc/kafka/jmx-exporter.yml
@@ -51,21 +60,27 @@ services:
 
 
   broker-2:
-    image: confluentinc/cp-kafka:7.5.0
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: twitter-research/cp-kafka-jmx:7.5.0
     hostname: broker-2
     container_name: broker-2
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "broker-2:29092"]
-      interval: 10s
-      timeout: 5s
+      # KAFKA_OPTS='' : sinon le CLI hérite du -javaagent et tente de rebinder
+      # le port 7072 (déjà pris par le broker) → BindException → faux unhealthy.
+      test: ["CMD-SHELL", "KAFKA_OPTS='' kafka-broker-api-versions --bootstrap-server broker-2:29092"]
+      interval: 15s
+      timeout: 20s   # la JVM du CLI met ~5-6s à répondre
       retries: 5
+      start_period: 45s
     depends_on:
       - zookeeper
     ports:
       - "9093:9093"
       - "9102:9102"  # JMX
-      - "7072:7072"  # Prometheus metrics
+      # 7072 (métriques) NON publié sur l'hôte : scrape interne broker-2:7072.
     environment:
       KAFKA_BROKER_ID: 2
       KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
@@ -78,6 +93,8 @@ services:
       KAFKA_MIN_INSYNC_REPLICAS: 2
       KAFKA_JMX_PORT: 9102
       KAFKA_JMX_HOSTNAME: broker-2
+      # Charge l'agent JMX Prometheus : expose les métriques en HTTP sur :7072
+      KAFKA_OPTS: "-javaagent:/opt/jmx-exporter/jmx_prometheus_javaagent.jar=7072:/etc/kafka/jmx-exporter.yml"
     volumes:
       - broker-2-data:/var/lib/kafka/data
       - ./monitoring/jmx-exporter/kafka-broker.yml:/etc/kafka/jmx-exporter.yml
@@ -86,21 +103,27 @@ services:
 
 
   broker-3:
-    image: confluentinc/cp-kafka:7.5.0
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: twitter-research/cp-kafka-jmx:7.5.0
     hostname: broker-3
     container_name: broker-3
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "broker-3:29092"]
-      interval: 10s
-      timeout: 5s
+      # KAFKA_OPTS='' : sinon le CLI hérite du -javaagent et tente de rebinder
+      # le port 7073 (déjà pris par le broker) → BindException → faux unhealthy.
+      test: ["CMD-SHELL", "KAFKA_OPTS='' kafka-broker-api-versions --bootstrap-server broker-3:29092"]
+      interval: 15s
+      timeout: 20s   # la JVM du CLI met ~5-6s à répondre
       retries: 5
+      start_period: 45s
     depends_on:
       - zookeeper
     ports:
       - "9094:9094"
       - "9103:9103"  # JMX
-      - "7073:7073"  # Prometheus metrics
+      # 7073 (métriques) NON publié sur l'hôte : scrape interne broker-3:7073.
     environment:
       KAFKA_BROKER_ID: 3
       KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
@@ -113,6 +136,8 @@ services:
       KAFKA_MIN_INSYNC_REPLICAS: 2
       KAFKA_JMX_PORT: 9103
       KAFKA_JMX_HOSTNAME: broker-3
+      # Charge l'agent JMX Prometheus : expose les métriques en HTTP sur :7073
+      KAFKA_OPTS: "-javaagent:/opt/jmx-exporter/jmx_prometheus_javaagent.jar=7073:/etc/kafka/jmx-exporter.yml"
     volumes:
       - broker-3-data:/var/lib/kafka/data
       - ./monitoring/jmx-exporter/kafka-broker.yml:/etc/kafka/jmx-exporter.yml
@@ -133,27 +158,34 @@ services:
     # set -e : toute erreur de création stoppe le job (pas d'échec silencieux).
     # BROKERS commun aux commandes. Rétention explicite par topic (#9) :
     #  - tweets_raw / tweets_enriched : 7j (la source de vérité part vers S3)
-    #  - audit_logs (sert aussi de DLQ) : 14j pour laisser le temps de rejouer
-    command: |
-      set -e
-      BROKERS=broker-1:29092,broker-2:29092,broker-3:29092
-      echo 'Waiting for Kafka brokers to be ready...'
-      cub kafka-ready -b "$$BROKERS" 3 60
-      echo 'Creating topics...'
-      kafka-topics --create --if-not-exists --topic tweets_raw \
-        --partitions 3 --replication-factor 3 \
-        --config retention.ms=604800000 --config min.insync.replicas=2 \
-        --bootstrap-server "$$BROKERS"
-      kafka-topics --create --if-not-exists --topic tweets_enriched \
-        --partitions 3 --replication-factor 3 \
-        --config retention.ms=604800000 --config min.insync.replicas=2 \
-        --bootstrap-server "$$BROKERS"
-      kafka-topics --create --if-not-exists --topic audit_logs \
-        --partitions 3 --replication-factor 3 \
-        --config retention.ms=1209600000 --config min.insync.replicas=2 \
-        --bootstrap-server "$$BROKERS"
-      echo 'Topics created successfully. Current topics:'
-      kafka-topics --list --bootstrap-server "$$BROKERS"
+    #  - audit_logs : 14j pour rejouer. Contient (#10) à la fois les rejets
+    #    métier (header audit_type=validation_error, posé par le producer) et
+    #    le DLQ infra du connecteur S3 (headers __connect.errors.*). Le
+    #    consommateur distingue les deux via ces headers.
+    # command en LISTE à un seul élément : garantit que tout le script est
+    # passé comme UN argument à `sh -c` (sinon docker le découpe et seul `set`
+    # s'exécute → aucun topic créé).
+    command:
+      - |
+        set -e
+        BROKERS=broker-1:29092,broker-2:29092,broker-3:29092
+        echo 'Waiting for Kafka brokers to be ready...'
+        cub kafka-ready -b "$$BROKERS" 3 60
+        echo 'Creating topics...'
+        kafka-topics --create --if-not-exists --topic tweets_raw \
+          --partitions 3 --replication-factor 3 \
+          --config retention.ms=604800000 --config min.insync.replicas=2 \
+          --bootstrap-server "$$BROKERS"
+        kafka-topics --create --if-not-exists --topic tweets_enriched \
+          --partitions 3 --replication-factor 3 \
+          --config retention.ms=604800000 --config min.insync.replicas=2 \
+          --bootstrap-server "$$BROKERS"
+        kafka-topics --create --if-not-exists --topic audit_logs \
+          --partitions 3 --replication-factor 3 \
+          --config retention.ms=1209600000 --config min.insync.replicas=2 \
+          --bootstrap-server "$$BROKERS"
+        echo 'Topics created successfully. Current topics:'
+        kafka-topics --list --bootstrap-server "$$BROKERS"
     networks:
       - twitter-research-network
 
@@ -173,6 +205,36 @@ services:
     networks:
       - twitter-research-network
 
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml
+      - prometheus-data:/prometheus
+    depends_on:
+      - broker-1
+      - broker-2
+      - broker-3
+    networks:
+      - twitter-research-network
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: alertmanager
+    restart: unless-stopped
+    ports:
+      # 9093 côté hôte est déjà pris par broker-2 → on expose sur 9095.
+      # Le port interne reste 9093 (référencé par prometheus.yml).
+      - "9095:9093"
+    volumes:
+      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+    networks:
+      - twitter-research-network
+
 # Volumes nommés : persistent les données du cluster entre recreate/down.
 # Sans eux, un `docker compose down` efface topics, offsets et messages.
 volumes:
@@ -181,3 +243,4 @@ volumes:
   broker-1-data:
   broker-2-data:
   broker-3-data:
+  prometheus-data:

@@ -1,54 +1,17 @@
-from typing import Dict, Any
+from typing import Any, Dict
 
-# Mapping hashtag (lowercase) → clé Kafka normalisée
-CLUB_HASHTAGS: Dict[str, str] = {
-    "psg":            "PSG",
-    "allez_paris":    "PSG",
-    "om":             "OM",
-    "allezlom":       "OM",
-    "ol":             "OL",
-    "teamol":         "OL",
-    "ogcnice":        "OGCNICE",
-    "lesgym":         "OGCNICE",
-    "losc":           "LOSC",
-    "asmonaco":       "MONACO",
-    "asm":            "MONACO",
-    "girondins":      "BORDEAUX",
-    "fcnantes":       "NANTES",
-    "rennais":        "RENNES",
-    "srfc":           "RENNES",
-    "rcstrasbourg":   "STRASBOURG",
-    "rcsa":           "STRASBOURG",
-    "estac":          "TROYES",
-    "fclorient":      "LORIENT",
-    "angers":         "ANGERS",
-    "sco":            "ANGERS",
-    "reims":          "REIMS",
-    "staderennais":   "RENNES",
-    "mhsc":           "MONTPELLIER",
-    "toulouse":       "TOULOUSE",
-    "tfc":            "TOULOUSE",
-    "auxerre":        "AUXERRE",
-    "aja":            "AUXERRE",
-    "havre":          "HAVRE",
-    "hac":            "HAVRE",
-    "brest":          "BREST",
-    "sbfcbrest":      "BREST",
-    "lens":           "LENS",
-    "rclens":         "LENS",
-    "saintetienne":   "SAINTETIENNE",
-    "asse":           "SAINTETIENNE",
-}
-
-FALLBACK_KEY = b"Ligue1"
+FALLBACK_KEY = b"unknown"
 
 
 class KeyBuilder:
     """
-    This class builds a Kafka key from tweet hashtags.
+    Construit la clé de partition Kafka d'un tweet.
 
-    Returns the first Ligue 1 club detected in the hashtags,
-    or b'Ligue1' if no club is recognized.
+    La clé est l'``author_id`` : elle répartit la charge de façon équilibrée
+    entre les partitions (hash de l'auteur) tout en co-localisant les tweets
+    d'un même auteur (utile pour la déduplication ou l'analyse par compte).
+    Le club n'est plus la clé — il reste disponible dans les hashtags de la
+    valeur du message pour l'agrégation en aval.
     """
 
     def build(self, tweet: Dict[str, Any]) -> bytes:

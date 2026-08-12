@@ -75,6 +75,19 @@ class TestSendRouting:
         _, kwargs = mock_producer.produce.call_args
         assert kwargs["topic"] == "audit_logs"
 
+    def test_invalid_tweet_carries_audit_type_header(
+        self, producer_and_mock, invalid_tweet_missing_fields
+    ):
+        """#10 : les rejets métier sont étiquetés d'un header `audit_type`,
+        pour que le consommateur les distingue du DLQ infra (sink S3) sans
+        désérialiser la valeur."""
+        producer, mock_producer, _ = producer_and_mock
+
+        producer.send(invalid_tweet_missing_fields)
+
+        _, kwargs = mock_producer.produce.call_args
+        assert ("audit_type", b"validation_error") in kwargs["headers"]
+
 
 class TestMetrics:
 

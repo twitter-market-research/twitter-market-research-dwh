@@ -27,6 +27,12 @@ logger = logging.getLogger(__name__)
 # (ex: 10s) transforme la moindre indisponibilité broker en perte silencieuse.
 DELIVERY_TIMEOUT_MS = 120000
 
+# Header d'étiquetage des messages d'audit (#10). Permet au consommateur de
+# distinguer les rejets métier (validation) du DLQ infra du connecteur S3
+# (qui porte ses propres headers __connect.errors.*) sans désérialiser.
+AUDIT_TYPE_HEADER = "audit_type"
+AUDIT_TYPE_VALIDATION = b"validation_error"
+
 
 class TweetsRawProducer:
     """
@@ -104,6 +110,7 @@ class TweetsRawProducer:
         topic: str,
         value: bytes,
         key: Optional[bytes],
+        headers: Optional[list] = None,
     ) -> None:
         """Produit un message avec gestion de la back-pressure (#15).
 
@@ -125,6 +132,7 @@ class TweetsRawProducer:
                 topic=topic,
                 value=value,
                 key=key,
+                headers=headers,
                 on_delivery=self._on_delivery,
             )
         except BufferError:
@@ -136,6 +144,7 @@ class TweetsRawProducer:
                 topic=topic,
                 value=value,
                 key=key,
+                headers=headers,
                 on_delivery=self._on_delivery,
             )
 
@@ -215,6 +224,7 @@ class TweetsRawProducer:
             self._audit_topic,
             audit_value,
             key=b"validation_error",
+            headers=[(AUDIT_TYPE_HEADER, AUDIT_TYPE_VALIDATION)],
         )
 
     def flush(self, timeout: float = 10.0) -> int:
