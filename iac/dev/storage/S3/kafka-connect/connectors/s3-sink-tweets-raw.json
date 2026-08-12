@@ -21,7 +21,7 @@
     "partition.duration.ms": "86400000",
     "timezone": "Europe/Paris",
     "locale": "fr_FR",
-    "timestamp.extractor": "Wallclock",
+    "timestamp.extractor": "Record",
 
     "key.converter": "org.apache.kafka.connect.storage.StringConverter",
     "value.converter": "org.apache.kafka.connect.json.JsonConverter",

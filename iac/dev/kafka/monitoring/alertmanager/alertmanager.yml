@@ -11,7 +11,7 @@ route:
   routes:
     - match:
         severity: critical
-      receiver: "slack-critical-alerts"
+      receiver: "slack-critical"
 
 receivers:
   - name: "slack-alerts"

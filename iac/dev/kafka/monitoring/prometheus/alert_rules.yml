@@ -23,7 +23,7 @@ groups:
           description: "There are {{ $value }} under-replicated partitions in the Kafka cluster for more than 5 minutes. This may indicate issues with broker replication or performance."
       # ------- Controller not active -------
       - alert: kafkaControllerNotActive
-        expr: SUM(kafka_controller_active_count) != 1
+        expr: sum(kafka_controller_active_count) != 1
         for: 1m
         labels:
           severity: critical
@@ -31,14 +31,18 @@ groups:
           summary: "Kafka Controller is not active"
           description: "The Kafka controller is not active for more than 2 minutes. This may indicate a failure in the controller broker or issues with Zookeeper connectivity."
       # ------- High Consumer lag -------
-      - alert: kafkaHighConsumerLag
-        expr: kafka_consumer_group_lag(topics="tweets_raw") > 1000
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "High Consumer lag detected"
-          description: "There is high consumer lag in the Kafka cluster for more than 5 minutes. This may indicate performance issues or bottlenecks in the consumer applications."
+      # Désactivé : le consumer lag n'est PAS fourni par le jmx-exporter des
+      # brokers. Il faut un exporter dédié (kafka_exporter / kafka-lag-exporter)
+      # qui expose kafka_consumergroup_lag{topic=...}. À réactiver avec la
+      # bonne métrique une fois cet exporter ajouté.
+      # - alert: kafkaHighConsumerLag
+      #   expr: kafka_consumergroup_lag{topic="tweets_raw"} > 1000
+      #   for: 5m
+      #   labels:
+      #     severity: warning
+      #   annotations:
+      #     summary: "High Consumer lag detected"
+      #     description: "Consumer lag élevé sur tweets_raw depuis 5 min."
       # ------- Low Incoming Messages -------
       - alert: kafkaLowIncomingMessages
         expr: kafka_broker_messages_in_per_sec < 1
