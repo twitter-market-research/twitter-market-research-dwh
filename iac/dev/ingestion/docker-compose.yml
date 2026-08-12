@@ -28,6 +28,20 @@ services:
       TWIKIT_AUTH_TOKEN: ${TWIKIT_AUTH_TOKEN}
       LANG_FILTER: ${LANG_FILTER:-"fr"}
       BATCH_SIZE: ${BATCH_SIZE:-100}
+    # Also write logs to the shared volume so the audit-log shipper can tail
+    # them and forward them to the audit_logs topic.
+    command:
+      - python
+      - -m
+      - tweets_raw.extract
+      - --keywords
+      - PSG OR OM
+      - --max-results
+      - "100"
+      - --log-file
+      - /app/logs/ingestion.log
+    volumes:
+      - ingestion-logs:/app/logs
     depends_on:
       kafka-healthcheck:
         condition: service_completed_successfully
@@ -48,13 +62,16 @@ services:
     environment:
       KAFKA_BROKERS: broker-1:29092,broker-2:29092,broker-3:29092
       TOPIC_NAME: audit_logs
+      LOG_FILE: /app/logs/ingestion.log
+    volumes:
+      - ingestion-logs:/app/logs
     depends_on:
-      - kafka-healthcheck
+      kafka-healthcheck:
+        condition: service_completed_successfully
     restart: unless-stopped
     networks:
       - twitter-research-network
 
-  # helper service to check Kafka health before starting producers
-
-
-
+volumes:
+  # Shared between the producers (writers) and the audit-log shipper (reader).
+  ingestion-logs:

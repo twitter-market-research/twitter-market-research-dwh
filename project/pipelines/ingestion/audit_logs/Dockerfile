@@ -15,9 +15,15 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY audit_logs  ./audit_logs
 
+ENV PYTHONPATH=/app:/app/audit_logs
+
 # create a non-root user and switch to that user for better security practices.
-RUN useradd -m -u 1000 appuser
+# /app/logs is owned by appuser so the shared named volume mounted there is
+# readable/writable by appuser (same uid as the tweets-raw-producer).
+RUN useradd -m -u 1000 appuser \
+    && mkdir -p /app/logs \
+    && chown -R appuser:appuser /app/logs
 USER appuser
 
-# Run the extract module when the container starts.
-#CMD ["python", "-m", "extract"]
+# Run the audit-log shipper when the container starts.
+CMD ["python", "-m", "audit_logs.extract"]
