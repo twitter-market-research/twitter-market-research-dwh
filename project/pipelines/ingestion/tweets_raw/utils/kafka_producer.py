@@ -126,9 +126,6 @@ class TweetsRawProducer:
             Charge utile sérialisée du message.
         key : Optional[bytes]
             Clé de partitionnement (peut être None).
-        headers : Optional[list]
-            Liste de tuples ``(str, bytes)`` posés en headers Kafka. None si
-            le message ne porte pas de métadonnée.
         """
         try:
             self._producer.produce(
