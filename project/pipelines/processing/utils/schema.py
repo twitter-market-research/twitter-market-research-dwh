@@ -23,7 +23,7 @@ from pyspark.sql.types import (
 
 # One StructField per column (name + type)
 TWEET_SCHEMA = StructType([
-    StructField("tweet_id", StringType(), nullable=False),
+    StructField("tweet_id", StringType(), nullable=True),
     StructField("text", StringType(), nullable=True),
     StructField("created_at", StringType(), nullable=True),
     StructField("author_id", StringType(), nullable=True),
