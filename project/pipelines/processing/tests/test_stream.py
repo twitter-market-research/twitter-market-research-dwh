@@ -10,7 +10,7 @@ class TestConfigFromEnv:
     def test_defaults_when_env_is_empty(self) -> None:
         config = config_from_env({})
         assert config.brokers == "localhost:9092"
-        assert config["input_topic"] == "tweets_raw"
+        assert config.topic == "tweets_raw"
         assert config.starting_offsets == "latest"
 
     def test_reads_overrides_from_the_mapping(self) -> None:
