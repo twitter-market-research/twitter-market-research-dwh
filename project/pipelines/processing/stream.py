@@ -54,11 +54,11 @@ class StreamConfig:
     starting_offsets: str
     staging_table: str
     max_offsets_per_trigger: Optional[int]
-    api_endpoint: Optional[str]
+    checkpoint_location: Optional[str]
     trigger_interval: str
     project: str
-    bq_table: str
-    bq_api_endpoint: Optional[str]
+    staging_table: str
+    api_endpoint: Optional[str]
 
 
 def config_from_env(env: Mapping[str, str]) -> StreamConfig:
@@ -89,7 +89,7 @@ def config_from_env(env: Mapping[str, str]) -> StreamConfig:
         trigger_interval=env.get("TRIGGER_INTERVAL", "30 seconds"),
         project=project,
         staging_table=bq_table,
-        bq_api_endpoint=env.get("BQ_API_ENDPOINT"),
+        api_endpoint=env.get("BQ_API_ENDPOINT"),
     )
 
 
@@ -160,7 +160,7 @@ def main() -> int:
         "Streaming %s from %s -> %s (offsets=%s)",
         config.topic,
         config.brokers,
-        config.bq_table,
+        config.staging_table,
         config.starting_offsets,
     )
 
@@ -168,9 +168,9 @@ def main() -> int:
     spark.sparkContext.setLogLevel("WARN")
 
     sink = BigQueryBatchSink(
-        table=config.bq_table,
+        table=config.staging_table,
         project=config.project,
-        api_endpoint=config.bq_api_endpoint
+        api_endpoint=config.api_endpoint
     )
 
     query = (
