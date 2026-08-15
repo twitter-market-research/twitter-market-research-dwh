@@ -11,6 +11,7 @@ from __future__ import annotations
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 from pyspark.sql.types import ArrayType, StringType
+from datetime import datetime 
 
 from project.pipelines.processing.utils.schema import TWEET_SCHEMA
 from project.pipelines.processing.utils.theme_tagger import tag_themes
@@ -27,6 +28,7 @@ _STAGING_COLUMNS = [
     "author_id",
     "lang",
     "text",
+    "hashtags",
     "like_count",
     "retweet_count",
     "engagement",
