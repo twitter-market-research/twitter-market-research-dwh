@@ -9,7 +9,6 @@ class TestConfigFromEnv:
 
     def test_defaults_when_env_is_empty(self) -> None:
         config = config_from_env({})
-        assert config["bootstrap_servers"] == "localhost:9092"
         assert config.brokers == "localhost:9092"
         assert config["input_topic"] == "tweets_raw"
         assert config.starting_offsets == "latest"
@@ -28,14 +27,14 @@ class TestConfigFromEnv:
         Without BQ_TABLE the project id drives a conventional path.
         """
         config = config_from_env({"GCP_PROJECT_ID": "my-project"})
-        assert config["staging_table"] == "my-project.twitter_staging.tweets"
+        assert config.staging_table == "my-project.twitter_staging.tweets"
 
     def test_explicit_table_wins(self) -> None:
         config = config_from_env({
             "GCP_PROJECT_ID": "my-project",
             "BQ_TABLE": "other.dataset.table",
         })
-        assert config.bq_table == "other.dataset.table"
+        assert config.staging_table == "other.dataset.table"
 
     def test_max_offsets_per_trigger_is_an_int(self) -> None:
         """

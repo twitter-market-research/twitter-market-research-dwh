@@ -1,5 +1,23 @@
 #!/usr/bin/env python3
+"""
+This file is the Entrypoint : Entry point: Kafka(tweets_raw) -> enrich -> BigQuery staging
 
+It reads the raw tweets topic as a Structured Streaming source, applies the
+``enrich_stream`` transformation and writes every micro-batch to
+BigQuery through ``BigQueryBatchSink`` in ``foreachBatch``.
+
+Configuration comes from the environment:
+- KAFKA_BROKERS           : bootstrap servers (default localhost:9092)
+- TOPIC_NAME              : source topic (default tweets_raw)
+- STARTING_OFFSETS        : earliest | latest (default latest)
+- MAX_OFFSETS_PER_TRIGGER : micro-batch ceiling (default 1000)
+- CHECKPOINT_LOCATION     : streaming state dir (must be persistent)
+- GCP_PROJECT_ID          : project id (any string against the emulator)
+- BQ_TABLE                : project.dataset.table (default: staging)
+- BQ_API_ENDPOINT         : emulator URL; unset for real BigQuery
+- TRIGGER_INTERVAL        : micro-batch pace (default "30 seconds")
+
+"""
 
 from __future__ import annotations
 
@@ -9,7 +27,7 @@ import os
 from dataclasses import dataclass
 from typing import Mapping, Optional
 
-from pyspark.sql import Dataframe, SparkSession
+from pyspark.sql import DataFrame, SparkSession
 
 from project.pipelines.processing.utils.bq_writer import BigQueryBatchSink
 from project.pipelines.processing.utils.transform import enrich_stream
@@ -22,7 +40,7 @@ logging.basicConfig(
 logger = logging.getLogger("processing.stream")
 
 # Must match both the Spark version and its Scala build (2.12 here).
-KAFKA_CONNECTOR = "org.apache.spark:spark-sql-kafka-0-10_2.12:3.4.1"
+KAFKA_CONNECTOR = "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1"
 
 
 @dataclass(frozen=True)
@@ -32,7 +50,7 @@ class StreamConfig:
     """
 
     brokers: str
-    input_topic: str
+    topic: str
     starting_offsets: str
     staging_table: str
     max_offsets_per_trigger: Optional[int]
@@ -70,7 +88,7 @@ def config_from_env(env: Mapping[str, str]) -> StreamConfig:
         ),
         trigger_interval=env.get("TRIGGER_INTERVAL", "30 seconds"),
         project=project,
-        bq_table=bq_table,
+        staging_table=bq_table,
         bq_api_endpoint=env.get("BQ_API_ENDPOINT"),
     )
 
@@ -101,7 +119,7 @@ def build_session(config: StreamConfig) -> SparkSession:
 def read_tweets(
     spark: SparkSession,
     config: StreamConfig
-) -> Dataframe:
+) -> DataFrame:
     """
     Read the raw tweets from Kafka as a streaming DataFrame.
 
@@ -166,3 +184,7 @@ def main() -> int:
     )
     query.awaitTermination()
     return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
