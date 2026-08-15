@@ -146,4 +146,23 @@ def main() -> int:
         config.starting_offsets,
     )
 
-    s
+    spark = build_session(config)
+    spark.sparkContext.setLogLevel("WARN")
+
+    sink = BigQueryBatchSink(
+        table=config.bq_table,
+        project=config.project,
+        api_endpoint=config.bq_api_endpoint
+    )
+
+    query = (
+        enrich_stream(read_tweets(spark, config))
+        .writeStream
+        .foreachBatch(sink)
+        .option("checkpointLocation", config.checkpoint_location)
+        .trigger(processingTime=config.trigger_interval)
+        .outputMode("append")
+        .start()
+    )
+    query.awaitTermination()
+    return 0
