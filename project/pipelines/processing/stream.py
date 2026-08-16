@@ -52,9 +52,8 @@ class StreamConfig:
     brokers: str
     topic: str
     starting_offsets: str
-    staging_table: str
-    max_offsets_per_trigger: Optional[int]
-    checkpoint_location: Optional[str]
+    max_offsets_per_trigger: int
+    checkpoint_location: str
     trigger_interval: str
     project: str
     staging_table: str
@@ -81,7 +80,9 @@ def config_from_env(env: Mapping[str, str]) -> StreamConfig:
         brokers=env.get("KAFKA_BROKERS", "localhost:9092"),
         topic=env.get("TOPIC_NAME", "tweets_raw"),
         starting_offsets=env.get("STARTING_OFFSETS", "latest"),
-        max_offsets_per_trigger=int(env.get("MAX_OFFSETS_PER_TRIGGER", "1000")),
+        max_offsets_per_trigger=int(
+            env.get("MAX_OFFSETS_PER_TRIGGER", "1000")
+        ),
         checkpoint_location=env.get(
             "CHECKPOINT_LOCATION", 
             "/tmp/spark-checkpoints/tweets_enriched"

@@ -1,0 +1,29 @@
+
+  # Émulateur BigQuery — dev uniquement. En prod, BQ_API_ENDPOINT n'est
+  # pas défini et le sink bascule sur le vrai BigQuery.
+  bq-emulator:
+    image: ghcr.io/goccy/bigquery-emulator:0.6.6
+    hostname: bq-emulator
+    container_name: bq-emulator
+    restart: unless-stopped
+    ports:
+      - "9050:9050"   # API REST : celle que bq_writer utilise
+      - "9060:9060"   # API gRPC Storage : inutilisée aujourd'hui
+    command:
+      - --project=${GCP_PROJECT_ID:-local-project}
+      - --data-from-yaml=/seed/staging_schema.yaml
+      - --host=0.0.0.0
+      - --port=9050
+    volumes:
+      -     volumes:
+      - ./staging_schema.yaml:/seed/staging_schema.yaml:ro
+    healthcheck:
+      # Ni curl ni wget dans cette image : /dev/tcp de bash est la seule
+      # sonde disponible.
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/9050'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - twitter-research-network

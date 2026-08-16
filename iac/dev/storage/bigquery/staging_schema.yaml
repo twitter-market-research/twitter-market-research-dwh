@@ -1,0 +1,34 @@
+# Seed for the BigQuery emulator (dev only).
+# Mirrors _STAGING_COLUMNS in processing/utils/transform.py -- keep both
+# in sync: a column added there must be added here or the insert fails.
+projects:
+  - id: local-project
+    datasets:
+      - id: twitter_staging
+        tables:
+          - id: tweets
+            columns:
+              - name: tweet_id
+                type: STRING
+              - name: author_id
+                type: STRING
+              - name: lang
+                type: STRING
+              - name: text
+                type: STRING
+              - name: hashtags
+                type: STRING
+                mode: REPEATED
+              - name: like_count
+                type: INTEGER
+              - name: retweet_count
+                type: INTEGER
+              - name: engagement
+                type: INTEGER
+              - name: themes
+                type: STRING
+                mode: REPEATED
+              - name: created_at
+                type: TIMESTAMP
+              - name: processed_at
+                type: TIMESTAMP
