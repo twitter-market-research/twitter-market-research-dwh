@@ -10,6 +10,8 @@ include:
       - ../.env.dev
   - path:
     - ./storage/S3/docker-compose.yml
+    - ./storage/bigquery/docker-compose.yml
+
     env_file:
       - ../.env.dev
 
