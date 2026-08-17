@@ -1,6 +1,8 @@
 
   # Émulateur BigQuery — dev uniquement. En prod, BQ_API_ENDPOINT n'est
   # pas défini et le sink bascule sur le vrai BigQuery.
+  
+services:
   bq-emulator:
     image: ghcr.io/goccy/bigquery-emulator:0.6.6
     hostname: bq-emulator
@@ -15,7 +17,6 @@
       - --host=0.0.0.0
       - --port=9050
     volumes:
-      -     volumes:
       - ./staging_schema.yaml:/seed/staging_schema.yaml:ro
     healthcheck:
       # Ni curl ni wget dans cette image : /dev/tcp de bash est la seule
@@ -25,5 +26,20 @@
       timeout: 5s
       retries: 5
       start_period: 10s
+    networks:
+      - twitter-research-network
+  bq-ui:
+    image: nginx:1.27-alpine
+    hostname: bq-ui
+    container_name: bq-ui
+    restart: unless-stopped
+    ports:
+      - "9051:80"
+    volumes:
+      - ./ui/index.html:/usr/share/nginx/html/index.html:ro
+      - ./ui/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      bq-emulator:
+        condition: service_healthy
     networks:
       - twitter-research-network

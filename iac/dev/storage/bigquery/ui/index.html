@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>BigQuery staging — dev</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 14px/1.5 system-ui, sans-serif; margin: 0; padding: 1.5rem;
+         background: Canvas; color: CanvasText; }
+  h1 { font-size: 1.1rem; margin: 0 0 1rem; }
+  textarea { width: 100%; min-height: 7rem; font: 13px/1.5 ui-monospace, monospace;
+             padding: .6rem; box-sizing: border-box; }
+  button { font: inherit; padding: .4rem .9rem; margin: .5rem .4rem .5rem 0; cursor: pointer; }
+  .presets button { font-size: 12px; opacity: .85; }
+  #status { margin-left: .5rem; opacity: .75; }
+  .wrap { overflow-x: auto; margin-top: 1rem; }
+  table { border-collapse: collapse; font-size: 13px; }
+  th, td { border: 1px solid rgba(128,128,128,.4); padding: .35rem .6rem;
+           text-align: left; white-space: nowrap; }
+  th { background: rgba(128,128,128,.15); }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .null { opacity: .4; }
+</style>
+</head>
+<body>
+<h1>BigQuery staging — émulateur dev</h1>
+
+<textarea id="sql">SELECT tweet_id, engagement, themes, hashtags, created_at
+FROM `local-project.twitter_staging.tweets`
+WHERE ARRAY_LENGTH(themes) > 0
+ORDER BY engagement DESC
+LIMIT 50</textarea>
+
+<div>
+  <button onclick="run()">Exécuter (Ctrl+Entrée)</button>
+  <span id="status"></span>
+</div>
+
+<div class="presets">
+  <button onclick="preset('SELECT COUNT(*) AS total FROM `local-project.twitter_staging.tweets`')">Total</button>
+  <button onclick="preset('SELECT theme, COUNT(*) AS n FROM `local-project.twitter_staging.tweets`, UNNEST(themes) AS theme GROUP BY theme ORDER BY n DESC')">Thèmes</button>
+  <button onclick="preset('SELECT tweet_id, COUNT(*) AS n FROM `local-project.twitter_staging.tweets` GROUP BY tweet_id HAVING n > 1 ORDER BY n DESC LIMIT 50')">Doublons</button>
+</div>
+
+<div class="wrap" id="out"></div>
+
+<script>
+const PROJECT = 'local-project';
+const $ = s => document.querySelector(s);
+
+function preset(sql) { $('#sql').value = sql; run(); }
+
+// L'émulateur renvoie les TIMESTAMP en secondes flottantes, pas en
+// microsecondes entières comme le vrai BigQuery : on convertit ici, ce qui
+// évite d'avoir à écrire CAST(... AS STRING) dans chaque requête.
+function fmt(v, field) {
+  if (v === null || v === undefined) return '<span class="null">∅</span>';
+  if (field.type === 'TIMESTAMP') {
+    const n = parseFloat(v);
+    return isNaN(n) ? v : new Date(n * 1000).toISOString().replace('.000Z', 'Z');
+  }
+  return String(v);
+}
+
+function cell(value, field) {
+  if (field.mode === 'REPEATED') {
+    const items = value || [];
+    return items.length ? items.map(x => fmt(x.v, field)).join(' · ')
+                        : '<span class="null">[]</span>';
+  }
+  return fmt(value, field);
+}
+
+function render(data) {
+  const fields = (data.schema && data.schema.fields) || [];
+  const rows = data.rows || [];
+  $('#status').textContent = rows.length + ' ligne(s)';
+  if (!fields.length) { $('#out').innerHTML = ''; return; }
+  const head = '<tr>' + fields.map(f =>
+    '<th>' + f.name + '<br><small>' + f.type +
+    (f.mode === 'REPEATED' ? '[]' : '') + '</small></th>').join('') + '</tr>';
+  const body = rows.map(r => '<tr>' + fields.map((f, i) => {
+    const num = (f.type === 'INTEGER' || f.type === 'FLOAT') && f.mode !== 'REPEATED';
+    return '<td' + (num ? ' class="num"' : '') + '>' + cell(r.f[i].v, f) + '</td>';
+  }).join('') + '</tr>').join('');
+  $('#out').innerHTML = '<table>' + head + body + '</table>';
+}
+
+async function run() {
+  $('#status').textContent = 'Exécution…';
+  try {
+    const res = await fetch('/bigquery/v2/projects/' + PROJECT + '/queries', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: $('#sql').value, useLegacySql: false })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+    render(data);
+  } catch (e) {
+    $('#status').textContent = 'Erreur : ' + e.message;
+    $('#out').innerHTML = '';
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) run();
+});
+run();
+</script>
+</body>
+</html>

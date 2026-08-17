@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-This file is the Entrypoint : Entry point: Kafka(tweets_raw) -> enrich -> BigQuery staging
+Entry point: Kafka(tweets_raw) -> enrich -> BigQuery staging.
 
 It reads the raw tweets topic as a Structured Streaming source, applies the
 ``enrich_stream`` transformation and writes every micro-batch to
@@ -36,11 +36,8 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
-    )
+)
 logger = logging.getLogger("processing.stream")
-
-# Must match both the Spark version and its Scala build (2.12 here).
-KAFKA_CONNECTOR = "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1"
 
 
 @dataclass(frozen=True)
@@ -84,13 +81,16 @@ def config_from_env(env: Mapping[str, str]) -> StreamConfig:
             env.get("MAX_OFFSETS_PER_TRIGGER", "1000")
         ),
         checkpoint_location=env.get(
-            "CHECKPOINT_LOCATION", 
-            "/tmp/spark-checkpoints/tweets_enriched"
+            "CHECKPOINT_LOCATION",
+            "/tmp/spark-checkpoints/tweets_enriched",
         ),
         trigger_interval=env.get("TRIGGER_INTERVAL", "30 seconds"),
         project=project,
         staging_table=bq_table,
-        api_endpoint=env.get("BQ_API_ENDPOINT"),
+        # An undefined compose variable arrives as "" rather than absent:
+        # `or None` keeps the sink on real BigQuery credentials instead of
+        # anonymous ones.
+        api_endpoint=env.get("BQ_API_ENDPOINT") or None,
     )
 
 
@@ -108,11 +108,14 @@ def build_session(config: StreamConfig) -> SparkSession:
     SparkSession
         The active SparkSession .
     """
+    # No spark.jars.packages here: the Kafka connector jars are baked into
+    # the image (see the processing Dockerfile). Declaring the package
+    # would make a direct `python3 stream.py` run contact Maven Central on
+    # every start -- dependency provisioning belongs to the image.
     return (
         SparkSession.builder
         .appName("twitter-enrichment")
         .config("spark.sql.session.timeZone", "UTC")
-        .config("spark.jars.packages", KAFKA_CONNECTOR)
         .getOrCreate()
     )
 
@@ -134,7 +137,8 @@ def read_tweets(
     Returns
     -------
     DataFrame
-        A streaming DataFrame with a ``value`` column holding the JSON payload.
+        A streaming DataFrame whose ``value`` column holds the JSON
+        payload, alongside the Kafka metadata columns.
     """
     return (
         spark.readStream

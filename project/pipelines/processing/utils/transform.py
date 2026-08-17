@@ -11,7 +11,6 @@ from __future__ import annotations
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 from pyspark.sql.types import ArrayType, StringType
-from datetime import datetime 
 
 from project.pipelines.processing.utils.schema import TWEET_SCHEMA
 from project.pipelines.processing.utils.theme_tagger import tag_themes
@@ -77,3 +76,28 @@ def enrich_stream(raw: DataFrame) -> DataFrame:
         .withColumn("processed_at", F.current_timestamp())
         .select(*_STAGING_COLUMNS)
     )
+
+
+def to_kafka_frame(enriched: DataFrame) -> DataFrame:
+    """Project the enriched frame onto Kafka's ``key``/``value`` contract.
+
+    The key is ``tweet_id`` -- unlike ``tweets_raw``, which keys on
+    ``author_id`` to spread load, the silver topic keys on identity so it
+    can be log-compacted and deduplicated downstream.
+
+    Parameters
+    ----------
+    enriched : DataFrame
+        Output of ``enrich_stream``.
+
+    Returns
+    -------
+    DataFrame
+        Two columns: ``key`` (string) and ``value`` (JSON string holding
+        the staging columns).
+    """
+    return enriched.select(
+        F.col("tweet_id").cast("string").alias("key"),
+        F.to_json(F.struct(*_STAGING_COLUMNS)).alias("value"),
+    )
+
