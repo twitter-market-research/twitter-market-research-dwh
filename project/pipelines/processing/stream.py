@@ -16,6 +16,7 @@ Configuration comes from the environment:
 - BQ_TABLE                : project.dataset.table (default: staging)
 - BQ_API_ENDPOINT         : emulator URL; unset for real BigQuery
 - TRIGGER_INTERVAL        : micro-batch pace (default "30 seconds")
+- OUTPUT_TOPIC            : silver topic (default tweets_enriched)
 
 """
 
@@ -27,10 +28,12 @@ import os
 from dataclasses import dataclass
 from typing import Mapping, Optional
 
+from project.pipelines.processing.utils.dual_sink import DualSink
 from pyspark.sql import DataFrame, SparkSession
 
 from project.pipelines.processing.utils.bq_writer import BigQueryBatchSink
 from project.pipelines.processing.utils.transform import enrich_stream
+from project.pipelines.processing.utils.kafka_publisher import KafkaEnrichedPublisher
 
 logging.basicConfig(
     level=logging.INFO,
@@ -55,6 +58,7 @@ class StreamConfig:
     project: str
     staging_table: str
     api_endpoint: Optional[str]
+    output_topic: str
 
 
 def config_from_env(env: Mapping[str, str]) -> StreamConfig:
@@ -73,6 +77,8 @@ def config_from_env(env: Mapping[str, str]) -> StreamConfig:
     """
     project = env.get("GCP_PROJECT_ID", "local-project")
     bq_table = env.get("BQ_TABLE", f"{project}.twitter_staging.tweets")
+    output_topic=env.get("OUTPUT_TOPIC", "tweets_enriched"),
+
     return StreamConfig(
         brokers=env.get("KAFKA_BROKERS", "localhost:9092"),
         topic=env.get("TOPIC_NAME", "tweets_raw"),
@@ -91,6 +97,7 @@ def config_from_env(env: Mapping[str, str]) -> StreamConfig:
         # `or None` keeps the sink on real BigQuery credentials instead of
         # anonymous ones.
         api_endpoint=env.get("BQ_API_ENDPOINT") or None,
+        output_topic=output_topic
     )
 
 
@@ -172,10 +179,16 @@ def main() -> int:
     spark = build_session(config)
     spark.sparkContext.setLogLevel("WARN")
 
-    sink = BigQueryBatchSink(
-        table=config.staging_table,
-        project=config.project,
-        api_endpoint=config.api_endpoint
+    sink = DualSink(
+        kafka_sink=KafkaEnrichedPublisher(
+            brokers=config.brokers,
+            topic=config.output_topic,
+        ),
+        bq_sink=BigQueryBatchSink(
+            table=config.staging_table,
+            project=config.project,
+            api_endpoint=config.api_endpoint,
+        ),
     )
 
     query = (
