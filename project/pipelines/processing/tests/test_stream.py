@@ -48,3 +48,11 @@ class TestConfigFromEnv:
         No endpoint means the sink uses real credentials, not anonymous
         """
         assert config_from_env({}).api_endpoint is None
+
+    def test_output_topic_defaults_to_the_silver_topic(self) -> None:
+        """The silver topic must be a plain string, not a tuple."""
+        assert config_from_env({}).output_topic == "tweets_enriched"
+
+    def test_output_topic_is_overridable(self) -> None:
+        config = config_from_env({"OUTPUT_TOPIC": "tweets_silver"})
+        assert config.output_topic == "tweets_silver"

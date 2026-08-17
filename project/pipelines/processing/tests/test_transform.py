@@ -7,8 +7,9 @@ import pytest
 
 pytest.importorskip("pyspark")
 
-from project.pipelines.processing.utils.transform import ( # noqa: E402.
-    enrich_stream
+from project.pipelines.processing.utils.transform import (  # noqa: E402
+    enrich_stream,
+    to_kafka_frame,
 )
 from pyspark.sql import SparkSession
 

@@ -28,12 +28,14 @@ import os
 from dataclasses import dataclass
 from typing import Mapping, Optional
 
-from project.pipelines.processing.utils.dual_sink import DualSink
 from pyspark.sql import DataFrame, SparkSession
 
+from project.pipelines.processing.utils.dual_sink import DualSink
 from project.pipelines.processing.utils.bq_writer import BigQueryBatchSink
 from project.pipelines.processing.utils.transform import enrich_stream
-from project.pipelines.processing.utils.kafka_publisher import KafkaEnrichedPublisher
+from project.pipelines.processing.utils.kafka_publisher import (
+    KafkaEnrichedPublisher,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -77,7 +79,7 @@ def config_from_env(env: Mapping[str, str]) -> StreamConfig:
     """
     project = env.get("GCP_PROJECT_ID", "local-project")
     bq_table = env.get("BQ_TABLE", f"{project}.twitter_staging.tweets")
-    output_topic=env.get("OUTPUT_TOPIC", "tweets_enriched"),
+    output_topic = env.get("OUTPUT_TOPIC", "tweets_enriched")
 
     return StreamConfig(
         brokers=env.get("KAFKA_BROKERS", "localhost:9092"),
