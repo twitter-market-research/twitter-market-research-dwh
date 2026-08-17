@@ -1,0 +1,58 @@
+services:
+
+  # Attend que les 3 brokers répondent avant de lancer le job : sans ça,
+  # Spark démarre, échoue à joindre Kafka et meurt avant que le cluster
+  # ne soit prêt.
+  kafka-healthcheck-processing:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka-healthcheck-processing
+    entrypoint: ["/bin/sh", "-c"]
+    # command en LISTE (cf. init-topics) : en scalaire, docker découpe le
+    # script et seule la première commande s'exécute.
+    command:
+      - |
+        set -e
+        cub kafka-ready -b broker-1:29092,broker-2:29092,broker-3:29092 3 60
+        echo 'Kafka is ready for the processing job.'
+    networks:
+      - twitter-research-network
+
+
+
+  spark-processing:
+    build:
+      context: ../../../project
+      dockerfile: pipelines/processing/Dockerfile
+    image: twitter-research/processing:dev
+    hostname: spark-processing
+    container_name: spark-processing
+    restart: unless-stopped
+    ports:
+      - "4040:4040"
+    depends_on:
+      kafka-healthcheck-processing:
+        condition: service_completed_successfully
+      bq-emulator:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKERS: broker-1:29092,broker-2:29092,broker-3:29092
+      TOPIC_NAME: tweets_raw
+      # earliest en dev : on veut voir arriver ce qui est déjà dans le
+      # topic. Le défaut du code reste latest, plus prudent.
+      STARTING_OFFSETS: ${STARTING_OFFSETS:-earliest}
+      MAX_OFFSETS_PER_TRIGGER: ${MAX_OFFSETS_PER_TRIGGER:-1000}
+      TRIGGER_INTERVAL: ${TRIGGER_INTERVAL:-30 seconds}
+      CHECKPOINT_LOCATION: /app/checkpoints/tweets_staging
+      GCP_PROJECT_ID: ${GCP_PROJECT_ID:-local-project}
+      BQ_TABLE: ${GCP_PROJECT_ID:-local-project}.twitter_staging.tweets
+      BQ_API_ENDPOINT: http://bq-emulator:9050
+    volumes:
+      - spark-checkpoints:/app/checkpoints
+    networks:
+      - twitter-research-network
+
+volumes:
+  # Le checkpoint DOIT survivre à un `docker compose down` : il mémorise
+  # les offsets Kafka déjà écrits dans BigQuery. Le perdre, c'est soit
+  # tout retraiter (doublons), soit sauter des messages.
+  spark-checkpoints:

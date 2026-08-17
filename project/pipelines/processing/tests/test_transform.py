@@ -131,3 +131,29 @@ class TestEnrichStream:
             "themes",
             "processed_at"
         }
+
+
+class TestToKafkaFrame:
+    """Projection of the enriched frame to Kafka's key/value contract."""
+
+    def test_exposes_only_key_and_value(self, spark) -> None:
+        """The Kafka sink accepts nothing else."""
+        frame = _frame(spark, json.dumps(VALID_TWEET))
+        out = to_kafka_frame(enrich_stream(frame))
+        assert out.columns == ["key", "value"]
+
+    def test_key_is_the_tweet_id(self, spark) -> None:
+        """tweet_id keys the silver topic: identity, not load spreading."""
+        frame = _frame(spark, json.dumps(VALID_TWEET))
+        row = to_kafka_frame(enrich_stream(frame)).collect()[0]
+        assert row["key"] == VALID_TWEET["tweet_id"]
+
+    def test_value_carries_the_staging_payload(self, spark) -> None:
+        """The JSON value holds the enriched columns, engagement included."""
+        frame = _frame(spark, json.dumps(VALID_TWEET))
+        row = to_kafka_frame(enrich_stream(frame)).collect()[0]
+        payload = json.loads(row["value"])
+        assert payload["tweet_id"] == VALID_TWEET["tweet_id"]
+        assert payload["engagement"] == 15
+        assert "themes" in payload
+        assert "raw_payload" not in payload
