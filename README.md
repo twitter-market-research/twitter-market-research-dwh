@@ -1,4 +1,4 @@
-# Twitter Market Research — Data Lakehouse
+# Twitter Market Research — Data Warehouse
 
 A real-time data platform that collects, validates, and stores X (Twitter)
 tweets related to **Ligue 1** for market research purposes (sentiment &
