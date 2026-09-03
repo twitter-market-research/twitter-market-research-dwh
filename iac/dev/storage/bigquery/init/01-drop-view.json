@@ -1,4 +1,0 @@
-{
-  "useLegacySql": false,
-  "query": "DROP VIEW IF EXISTS `local-project.twitter_staging.tweets_current`"
-}
