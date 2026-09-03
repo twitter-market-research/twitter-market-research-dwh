@@ -42,7 +42,7 @@ services:
       STARTING_OFFSETS: ${STARTING_OFFSETS:-earliest}
       MAX_OFFSETS_PER_TRIGGER: ${MAX_OFFSETS_PER_TRIGGER:-1000}
       TRIGGER_INTERVAL: ${TRIGGER_INTERVAL:-30 seconds}
-      CHECKPOINT_LOCATION: /app/checkpoints/tweets_staging
+      CHECKPOINT_LOCATION: /app/checkpoints/tweets_enriched
       GCP_PROJECT_ID: ${GCP_PROJECT_ID:-local-project}
       BQ_TABLE: ${GCP_PROJECT_ID:-local-project}.twitter_staging.tweets
       BQ_API_ENDPOINT: http://bq-emulator:9050

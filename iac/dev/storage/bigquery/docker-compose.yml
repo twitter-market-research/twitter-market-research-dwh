@@ -1,8 +1,7 @@
+services:
 
   # Émulateur BigQuery — dev uniquement. En prod, BQ_API_ENDPOINT n'est
   # pas défini et le sink bascule sur le vrai BigQuery.
-  
-services:
   bq-emulator:
     image: ghcr.io/goccy/bigquery-emulator:0.6.6
     hostname: bq-emulator
@@ -28,6 +27,7 @@ services:
       start_period: 10s
     networks:
       - twitter-research-network
+
   bq-ui:
     image: nginx:1.27-alpine
     hostname: bq-ui
