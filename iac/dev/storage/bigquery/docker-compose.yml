@@ -3,6 +3,31 @@
   # pas défini et le sink bascule sur le vrai BigQuery.
   
 services:
+
+  # recreae deduplicated view at each restart to ensure indempotency
+  bq-init:
+    image: curlimages/curl:8.10.1
+    container_name: bq-init
+    depends_on:
+      bq-emulator:
+        condition: service_healthy
+    volumes:
+      - ./init:/init:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        API="http://bq-emulator:9050/bigquery/v2/projects/${GCP_PROJECT_ID:-local-project}/queries"
+        for f in /init/01-drop-view.json /init/02-create-view.json; do
+          echo "-> $$f"
+          curl -sS -f -X POST -H 'Content-Type: application/json' \
+            --data @"$$f" "$$API"
+          echo ""
+        done
+        echo "BigQuery init done: tweets_current is ready."
+    networks:
+      - twitter-research-network
+
   bq-emulator:
     image: ghcr.io/goccy/bigquery-emulator:0.6.6
     hostname: bq-emulator

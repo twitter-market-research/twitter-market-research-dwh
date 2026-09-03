@@ -178,7 +178,8 @@ services:
           --bootstrap-server "$$BROKERS"
         kafka-topics --create --if-not-exists --topic tweets_enriched \
           --partitions 3 --replication-factor 3 \
-          --config retention.ms=604800000 --config min.insync.replicas=2 \
+          --config cleanup.policy=compact \
+          --config min.insync.replicas=2 \
           --bootstrap-server "$$BROKERS"
         kafka-topics --create --if-not-exists --topic audit_logs \
           --partitions 3 --replication-factor 3 \

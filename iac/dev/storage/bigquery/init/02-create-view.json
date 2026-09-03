@@ -1,0 +1,4 @@
+{
+  "useLegacySql": false,
+  "query": "CREATE VIEW `local-project.twitter_staging.tweets_current` AS SELECT * EXCEPT(row_num) FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY tweet_id ORDER BY processed_at DESC) AS row_num FROM `local-project.twitter_staging.tweets`) WHERE row_num = 1"
+}
