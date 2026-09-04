@@ -11,6 +11,7 @@ Architecture :
   Extractor (hybride)
       └── APIExtractor (ce module) → tweets bruts avec author_id
       └── ScraperEnricher (à venir) → profils utilisateurs via twikit
+
 """
 
 import logging
@@ -69,6 +70,10 @@ class SearchConfig:
         Champs d'utilisateur à récupérer (si author_id dans expansions).
     min_retweets : Optional[int]
         Filtre minimum de retweets (ajoute "min_retweets:N" à la query).
+    exclude_replies : bool
+        Exclut les réponses (`-is:reply`). Activé par défaut : les fils de
+        réponses sont massivement du bruit (pronostics, mentions entre
+        comptes) et ne portent pas le sujet étudié.
     query : Optional[str]
         Requête manuelle (surcharge keywords). Si fourni, keywords est ignoré.
     """
@@ -86,6 +91,7 @@ class SearchConfig:
         "username", "name", "verified", "public_metrics"
     ])
     min_retweets: Optional[int] = None
+    exclude_replies: bool = True
     query: Optional[str] = None
 
     def __post_init__(self):
@@ -122,6 +128,8 @@ class SearchConfig:
         if self.min_retweets is not None:
             parts.append(f"min_retweets:{self.min_retweets}")
 
+        # Exclure les réponses parce qu''ils porraient etre des bruits       if self.exclude_replies:
+            parts.append("-is:reply")
         # Optionnel : exclure les retweets (garder tweets originaux)
         parts.append("-is:retweet")
 

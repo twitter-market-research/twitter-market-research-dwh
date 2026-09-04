@@ -321,6 +321,22 @@ class TestAPIExtractorSearchTweets:
         author_ids = {t["author_id"] for t in result}
         assert author_ids == {"u1", "u2"}
 
+    def test_config_excludes_replies_by_default(self):
+        """Les réponses sont exclues : 75% du bruit collecté en venait."""
+        config = SearchConfig(keywords="Ligue1")
+        assert "-is:reply" in config.query
+
+    def test_config_can_keep_replies(self):
+        """L'exclusion reste désactivable si un usage la réclame."""
+        config = SearchConfig(keywords="Ligue1", exclude_replies=False)
+        assert "-is:reply" not in config.query
+
+    def test_manual_query_is_never_rewritten(self):
+        """Une query manuelle est utilisée telle quelle (contrat existant)."""
+        config = SearchConfig(query="VAR -is:retweet")
+        assert config.query == "VAR -is:retweet"
+
+
 
 # ─────────────────────────────────────────────────────────────────────
 # 4. API EXTRACTOR — PAGINATION
