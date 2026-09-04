@@ -128,8 +128,11 @@ class SearchConfig:
         if self.min_retweets is not None:
             parts.append(f"min_retweets:{self.min_retweets}")
 
-        # Exclure les réponses parce qu''ils porraient etre des bruits       if self.exclude_replies:
+        # Exclure les réponses : sur 365 tweets collectés, 272 étaient des
+        # réponses de pronostics, sans rapport avec le sujet étudié.
+        if self.exclude_replies:
             parts.append("-is:reply")
+
         # Optionnel : exclure les retweets (garder tweets originaux)
         parts.append("-is:retweet")
 
