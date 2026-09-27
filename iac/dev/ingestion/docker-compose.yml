@@ -45,7 +45,12 @@ services:
     depends_on:
       kafka-healthcheck:
         condition: service_completed_successfully
-    restart: unless-stopped
+    # Job batch, pas un service : il collecte puis se termine. Avec
+    # unless-stopped, Docker le relançait en boucle — 13 collectes et
+    # ~6,50$ de budget API brûlés. Le compteur de budget interne ne peut
+    # rien y faire : il vit dans le processus et repart à zéro à chaque
+    # redémarrage.
+    restart: "no"
     networks:
       - twitter-research-network
 

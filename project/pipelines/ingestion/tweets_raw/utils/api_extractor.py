@@ -41,6 +41,16 @@ class BudgetExceededError(APIError):
     pass
 
 
+class CreditDepletedError(APIError):
+    """
+    The API credit has been depleted (no more tweets can be fetched)
+    """
+
+    def __init__(self, message: str = "API credit depleted"):
+        # 402 = Payment Required (HTTP status code)
+        super().__init__(message, status_code=402)
+
+
 # ─────────────────────────────────────────────────────────────────────
 # CONFIGURATION
 # ─────────────────────────────────────────────────────────────────────
@@ -70,6 +80,8 @@ class SearchConfig:
         Champs d'utilisateur à récupérer (si author_id dans expansions).
     min_retweets : Optional[int]
         Filtre minimum de retweets (ajoute "min_retweets:N" à la query).
+        ATTENTION : opérateur réservé aux accès Pro/Enterprise. Sur le
+        niveau d'accès actuel l'API répond HTTP 400 — vérifié le 04/09/26.
     exclude_replies : bool
         Exclut les réponses (`-is:reply`). Activé par défaut : les fils de
         réponses sont massivement du bruit (pronostics, mentions entre
@@ -172,14 +184,18 @@ class APIExtractor:
         Coût unitaire par tweet lu (défaut: 0.005$).
     """
 
+    # search/recent est plafonné aux 7 derniers jours ; search/all donne
+    # accès à l'archive complète mais exige un accès Pro/Academic.
     BASE_URL = "https://api.x.com/2/tweets/search/recent"
+    ARCHIVE_URL = "https://api.x.com/2/tweets/search/all"
     COST_PER_TWEET = 0.005  # Pay-per-use X API (février 2026)
 
     def __init__(
         self,
         bearer_token: str,
         config: Optional[SearchConfig] = None,
-        budget_limit: float = 25.0
+        budget_limit: float = 25.0,
+        archive: bool = False
     ):
         if not bearer_token or not bearer_token.strip():
             raise ValueError(
@@ -188,7 +204,7 @@ class APIExtractor:
 
         self.bearer_token = bearer_token.strip()
         self._config = config or SearchConfig()
-        self._base_url = self.BASE_URL
+        self._base_url = self.ARCHIVE_URL if archive else self.BASE_URL
         self._tweets_fetched = 0
         self._budget_limit = budget_limit
         self._cost_per_tweet = self.COST_PER_TWEET
@@ -314,6 +330,19 @@ class APIExtractor:
                 f"Attendez avant de relancer."
             )
             return None
+
+        # 402 : Credit depleted . Without a valid credit,
+        # the API will return 402 Payment Required.
+
+        if response.status_code == 402:
+            is_json = response.headers.get("content-type", "").startswith(
+                "application/json"
+            )
+            detail = response.json().get("detail", "") if is_json else ""
+            raise CreditDepletedError(
+                f"API X credit depleted ( {detail} or '402 Payment Required')"
+                f"Rechargez votre compte ou attendez le reset du quota."
+            )
 
         # Autres erreurs
         logger.error(

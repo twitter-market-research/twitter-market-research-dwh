@@ -111,6 +111,33 @@ class TestAPIExtractorInit:
         )
         assert "api.x.com" in extractor._base_url
 
+    def test_uses_recent_endpoint_by_default(self):
+        """Par défaut : search/recent, limité aux 7 derniers jours."""
+        extractor = APIExtractor(bearer_token="FAKE")
+        assert extractor._base_url.endswith("/tweets/search/recent")
+
+    def test_archive_uses_full_search_endpoint(self):
+        """archive=True vise l'archive complète (search/all).
+
+        C'est le seul moyen de remonter au-delà de 7 jours ; l'endpoint
+        exige un accès Pro/Academic.
+        """
+        extractor = APIExtractor(bearer_token="FAKE", archive=True)
+        assert extractor._base_url.endswith("/tweets/search/all")
+
+    def test_time_window_is_passed_to_the_api(self):
+        """start_time et end_time découpent la fenêtre de collecte."""
+        config = SearchConfig(
+            keywords="Ligue1",
+            start_time="2026-07-01T00:00:00Z",
+            end_time="2026-07-02T00:00:00Z",
+        )
+        params = APIExtractor(
+            bearer_token="FAKE", config=config
+        )._build_request_params()
+        assert params["start_time"] == "2026-07-01T00:00:00Z"
+        assert params["end_time"] == "2026-07-02T00:00:00Z"
+
 
 # ─────────────────────────────────────────────────────────────────────
 # 3. API EXTRACTOR — SEARCH TWEETS (CORE)
