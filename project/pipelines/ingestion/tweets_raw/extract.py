@@ -188,9 +188,15 @@ def run_pipeline(args) -> int:
         skip_s3=args.skip_s3,
     )
 
-    # ─── 3. Définir le start_time si fourni ─────────────────────────
+    # ─── 3. Fenêtre temporelle et endpoint ──────────────────────────
     if args.start_time:
         extractor._config.start_time = args.start_time
+    if args.end_time:
+        extractor._config.end_time = args.end_time
+    # Au-delà de 7 jours en arrière, search/recent refuse la requête :
+    # il faut basculer explicitement sur l'archive complète.
+    if args.archive:
+        extractor._config.archive = True
 
     # ─── 4. Lancer l'extraction ─────────────────────────────────────
     logging.info(
@@ -295,6 +301,20 @@ python extract.py --keywords "Ligue1" --output-json results/collecte_001.json
         type=str,
         default=None,
         help="Début de fenêtre temporelle (ISO 8601, ex: 2026-03-28T00:00:00Z)"
+    )
+    parser.add_argument(
+        "--end-time",
+        type=str,
+        default=None,
+        help="Fin de fenêtre temporelle (ISO 8601). Avec --start-time, "
+             "permet de découper la collecte jour par jour."
+    )
+    parser.add_argument(
+        "--archive",
+        action="store_true",
+        help="Utiliser search/all (archive complète) au lieu de "
+             "search/recent, limité aux 7 derniers jours. Requiert un "
+             "accès Pro/Academic."
     )
     parser.add_argument(
         "--no-scrape",

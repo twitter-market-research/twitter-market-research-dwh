@@ -1,13 +1,14 @@
 """Rule-based theme tagging for tweets.
 
-The market-research study is about an AI video-analysis app for football, so
-the "themes" are content topics (not clubs). They come straight from the KPI
-spec: video analysis, stats/analytics and VAR/refereeing.
+The study is about football conversation on Ligue 1. Themes are content
+topics (not clubs), and the catalogue below is the single source of truth:
+it drives the tagging *and* generates the ingestion search query, so the
+corpus always contains what the dashboard offers.
 
-Matching is intentionally simple and transparent (a tunable keyword map) so a
-junior can read and extend it. A sentiment model comes in a later iteration;
-this module stays pure Python and has no Spark dependency, which keeps it fast
-to unit-test offline.
+Matching is intentionally simple and transparent (a tunable keyword map) so
+a junior can read and extend it. A sentiment model comes in a later
+iteration; this module stays pure Python and has no Spark dependency, which
+keeps it fast to unit-test offline.
 """
 from __future__ import annotations
 
@@ -15,39 +16,34 @@ import re
 import unicodedata
 from typing import Dict, List, Optional, Sequence
 
-# Theme -> list of keywords. Order matters: it drives the order of the themes
-# returned by ``tag_themes``. Edit these lists to tune precision/recall.
+
+# Contexte football ANDé aux termes de thème dans la requête d'ingestion.
+# Sans lui, un mot ambigu comme "var" ramènerait n'importe quoi.
+LIGUE1_CONTEXT: List[str] = [
+    "Ligue1", '"Ligue 1"', "PSG", "OM", "OL", "LOSC", "ASSE",
+]
+
+# Theme -> keywords, most discriminating first. The leading terms of each
+# theme feed the ingestion query (see build_search_query), the full list
+# drives the tagging. Editing this dict is the only place a theme changes:
+# the search query is derived from it, never written by hand.
 THEME_KEYWORDS: Dict[str, List[str]] = {
-    "analyse_video": [
-        "analyse video",
-        "video analysis",
-        "analyse d'image",
-        "ralenti",
-        "montage video",
-        "highlights",
-        "resume video",
-        "sequence video",
-    ],
     "stats_analytics": [
-        "stats",
-        "statistiques",
-        "statistique",
-        "analytics",
-        "xg",
-        "expected goals",
-        "opta",
-        "heatmap",
-        "data foot",
-        "datascout",
-        "metriques",
+        "xg", "expected goals", "stats",
+        "statistiques", "statistique", "analytics",
+        "opta", "heatmap", "data foot", "metriques",
     ],
     "var": [
-        "var",
-        "arbitrage",
-        "arbitre",
-        "hors jeu",
-        "penalty",
-        "carton rouge",
+        "var", "arbitrage", "hors jeu",
+        "arbitre", "penalty", "carton rouge", "carton jaune",
+    ],
+    "mercato": [
+        "mercato", "transfert", "recrue",
+        "transferts", "recrutement", "signature", "prolongation",
+    ],
+    "tactique": [
+        "tactique", "pressing", "composition",
+        "compo", "systeme", "dispositif", "bloc bas", "schema",
     ],
 }
 
@@ -79,7 +75,7 @@ def _matches(
 
     Free text is matched on word boundaries (so ``var`` does not match
     ``varie``). Hashtags are matched on a compact, separator-free form so a
-    camelCase hashtag like ``#AnalyseVideo`` still matches ``"analyse video"``.
+    camelCase hashtag like ``#HorsJeu`` still matches ``"hors jeu"``.
 
     Parameters
     ----------
@@ -131,3 +127,35 @@ def tag_themes(
         for theme, keywords in THEME_KEYWORDS.items()
         if _matches(keywords, text_norm, hashtags_norm)
     ]
+
+
+def build_search_query(
+    context: Sequence[str],
+    terms_per_theme: int = 3,
+) -> str:
+    """Build the X API v2 search query from the theme catalogue.
+
+    Collection and tagging must never drift apart: the query is derived
+    from THEME_KEYWORDS instead of being maintained by hand. Only the
+    leading terms of each theme are used -- the X API caps a query at
+    about 512 characters.
+
+    Parameters
+    ----------
+    context : Sequence[str]
+        Football context terms ANDed with the theme terms (clubs,
+        competition), to keep ambiguous words like "var" on topic.
+    terms_per_theme : int
+        How many leading keywords to take per theme.
+
+    Returns
+    -------
+    str
+        A query such as ``("xg" OR ... ) (Ligue1 OR PSG OR ...)``.
+    """
+    terms = [
+        f'"{kw}"' if " " in kw else kw
+        for keywords in THEME_KEYWORDS.values()
+        for kw in keywords[:terms_per_theme]
+    ]
+    return f"({' OR '.join(terms)}) ({' OR '.join(context)})"

@@ -16,52 +16,20 @@ class KeyBuilder:
 
     def build(self, tweet: Dict[str, Any]) -> bytes:
         """
-        Construit une clé Kafka (bytes) à partir des hashtags d'un tweet.
+        Construit la clé Kafka (bytes) d'un tweet : son ``author_id``.
 
         Parameters
         ----------
         tweet : Dict[str, Any]
-            Tweet au schéma X API v2. Les hashtags sont lus dans
-            ``entities.hashtags[].tag`` (schéma réel de l'API) ; un ancien
-            schéma plat ``hashtags`` (liste de chaînes) reste supporté par
-            compatibilité.
+            Tweet au schéma X API v2.
 
         Returns
         -------
         bytes
-            Le nom du premier club Ligue 1 détecté (ex: ``b"OM"``), ou
-            ``b"Ligue1"`` si aucun club n'est reconnu.
+            L'``author_id`` encodé en UTF-8, ou ``b"unknown"`` s'il est
+            absent ou vide.
         """
-        for tag in self._extract_tags(tweet):
-            normalized = tag.lower().lstrip("#")
-            club = CLUB_HASHTAGS.get(normalized)
-            if club:
-                return club.encode("utf-8")
+        author_id = tweet.get("author_id")
+        if author_id:
+            return str(author_id).encode("utf-8")
         return FALLBACK_KEY
-
-    def _extract_tags(self, tweet: Dict[str, Any]) -> list:
-        """
-        Extrait la liste des hashtags (chaînes) d'un tweet, quel que soit
-        le schéma.
-
-        Parameters
-        ----------
-        tweet : Dict[str, Any]
-            Tweet pouvant contenir ``entities.hashtags[].tag`` (schéma X API
-            v2) ou un champ plat ``hashtags`` (ancien schéma).
-
-        Returns
-        -------
-        list
-            Liste des tags (chaînes). Vide si aucun hashtag n'est présent.
-        """
-        entities = tweet.get("entities") or {}
-        nested = entities.get("hashtags")
-        if nested:
-            return [
-                h.get("tag", "")
-                for h in nested
-                if isinstance(h, dict) and h.get("tag")
-            ]
-        # Compat : ancien schéma plat (liste de chaînes).
-        return tweet.get("hashtags", []) or []

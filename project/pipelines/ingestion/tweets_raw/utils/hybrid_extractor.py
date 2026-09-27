@@ -69,6 +69,10 @@ class HybridConfig:
     lang: Optional[str] = "fr"
     min_retweets: Optional[int] = None
     start_time: Optional[str] = None
+    end_time: Optional[str] = None
+    # True -> endpoint search/all (archive complète, accès Pro/Academic).
+    # Indispensable pour remonter au-delà des 7 jours de search/recent.
+    archive: bool = False
 
     # --- Scraping (twikit) ---
     twikit_auth_token: Optional[str] = None
@@ -446,9 +450,11 @@ class HybridExtractor:
                 max_results=max_results or self._config.max_results,
                 lang=self._config.lang,
                 start_time=self._config.start_time,
+                end_time=self._config.end_time,
                 min_retweets=self._config.min_retweets,
             ),
-            budget_limit=self._config.budget_limit
+            budget_limit=self._config.budget_limit,
+            archive=self._config.archive
         )
 
         # Scraper Enricher
