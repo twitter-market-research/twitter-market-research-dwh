@@ -19,6 +19,7 @@ import requests
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional, List, Dict, Any
+from .budget_ledger import BudgetLedger
 
 
 logger = logging.getLogger(__name__)
@@ -195,7 +196,8 @@ class APIExtractor:
         bearer_token: str,
         config: Optional[SearchConfig] = None,
         budget_limit: float = 25.0,
-        archive: bool = False
+        archive: bool = False,
+        ledger: Optional[BudgetLedger] = None
     ):
         if not bearer_token or not bearer_token.strip():
             raise ValueError(
@@ -208,6 +210,7 @@ class APIExtractor:
         self._tweets_fetched = 0
         self._budget_limit = budget_limit
         self._cost_per_tweet = self.COST_PER_TWEET
+        self._ledger = ledger or BudgetLedger.from_env(budget_limit)
 
         logger.info(
             f"APIExtractor initialisé — Budget: {budget_limit}$, "
@@ -226,8 +229,14 @@ class APIExtractor:
         return self._tweets_fetched * self._cost_per_tweet
 
     @property
+    def total_spent(self):
+        """Total spent in dollars, including ledger if available. """
+        prior = self._ledger.spent if self._ledger else 0.0
+        return prior
+
+    @property
     def remaining_budget(self) -> float:
-        """Budget restant en dollars."""
+        """Left budget in dollars"""
         return max(0, self._budget_limit - self.estimated_cost)
 
     @property
@@ -245,13 +254,13 @@ class APIExtractor:
             )
 
         # Warning à 80% du budget
-        if self.estimated_cost >= self._budget_limit * 0.80:
+        if self.total_spent >= self._budget_limit * 0.80:
             percent_used = (
-                self.estimated_cost / self._budget_limit * 100
+                self.total_spent / self._budget_limit * 100
             )
             logger.warning(
-                f"BUDGET ATTENTION: {self.estimated_cost:.2f}$ / "
-                f"{self._budget_limit}$ consommés ({percent_used:.0f}%). "
+                f"BUDGET ATTENTION: {self.total_spent:.2f}$ / "
+                f"{self._budget_limit}$ used ({percent_used:.0f}%). "
                 f"Reste ~{self.remaining_tweets} tweets."
             )
 
@@ -440,6 +449,8 @@ class APIExtractor:
         # Mettre à jour le compteur budget
         tweets_count = len(all_tweets)
         self._tweets_fetched += tweets_count
+        if self.ledger:
+            self._ledger.record(tweets_count, self._cost_per_tweet)
 
         logger.info(
             f"Collecte terminée — {tweets_count} tweets, "
@@ -511,3 +522,4 @@ class APIExtractor:
         """
         self._tweets_fetched = 0
         logger.info("Compteurs budget réinitialisés")
+
