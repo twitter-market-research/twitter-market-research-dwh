@@ -50,7 +50,8 @@ for i in $(seq 0 $((DAYS - 1))); do
     require_healthy_kafka
     before=$(topic_offsets) || { echo "ARRET : mesure des offsets HS."; exit 1; }
 
-    echo "=== [$((i + 1))/$DAYS] $from ==="
+        echo "=== [$((i + 1))/$DAYS] $from ==="
+    run_log=$(mktemp)
     docker compose run --rm --no-deps tweets-raw-producer \
         python -m tweets_raw.extract \
         --keywords "$KEYWORDS" \
@@ -58,13 +59,31 @@ for i in $(seq 0 $((DAYS - 1))); do
         --archive \
         --start-time "${from}T00:00:00Z" \
         --end-time "${to}T00:00:00Z" \
-        --log-file /app/logs/ingestion.log
+        --log-file /app/logs/ingestion.log 2>&1 | tee "$run_log"
+    status=${PIPESTATUS[0]}
+
+    if [ "$status" -eq 2 ]; then
+        echo "ARRET : crédits API X épuisés — rechargez le compte."
+        rm -f "$run_log"
+        exit 2
+    fi
+
+    # Le motif évite les caractères accentués : grep compare des octets et
+    # se trompe de longueur sur "fetchés" selon l'encodage du terminal.
+    fetched=$(sed -n 's/.*Tweets fetch[^:]*: *\([0-9][0-9]*\).*/\1/p' \
+        "$run_log" | tail -1)
+    rm -f "$run_log"
 
     after=$(topic_offsets) || { echo "ARRET : mesure des offsets HS."; exit 1; }
-    echo "--- $from : $((after - before)) messages publiés"
-    if [ "$after" -le "$before" ]; then
-        echo "ARRET : rien n'a été publié — on ne paie pas 59 fois la même perte."
+    published=$((after - before))
+    echo "--- $from : ${fetched:-0} collectés, $published publiés"
+
+    # Une journée réellement calme rend 0 tweet : ce n'est pas une panne.
+    # La perte, elle, se reconnaît à un écart entre collecté et publié.
+    if [ "${fetched:-0}" -gt 0 ] && [ "$published" -le 0 ]; then
+        echo "ARRET : $fetched tweets payés, aucun publié — Kafka muet."
         exit 1
     fi
     sleep 5
+
 done
