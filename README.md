@@ -13,7 +13,7 @@ business dashboards**—only technical monitoring for the platform.
 
 ## Data Flow
 
-![Architecture globale du projet — les 3 dépôts](architechture.png)
+![Architecture globale du projet — les 3 dépôts](assets/architecture.png)
 
 Observability: each broker exposes its JMX metrics via HTTP (Prometheus
 agent), which are scraped by **Prometheus**, with alerting handled by
