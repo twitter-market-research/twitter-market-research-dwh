@@ -24,8 +24,8 @@ agent), which are scraped by **Prometheus**, with alerting handled by
 - **Collection**: X API v2 (`requests`) + `twikit` (profile scraping)
 - **Streaming**: Apache Kafka (Confluent 7.5, 3 brokers + ZooKeeper)
 - **Raw storage**: MinIO (S3-compatible), populated via Kafka Connect (S3 sink)
-- **Serving**: MongoDB *(integration pending)*
-- **Processing**: Apache Spark *(pending)*
+- **Processing**: Apache Spark Structured Streaming (silver layer)
+- **Staging storage**: BigQuery (goccy emulator in dev)
 - **Monitoring**: Prometheus + AlertManager + JMX exporter
 - **Serialization / validation**: `pydantic`
 - **Language**: Python 3.12
@@ -94,9 +94,19 @@ Prometheus, and AlertManager, and creates the topics (`tweets_raw`,
 
 ### 3. Start a collection
 
+The search query is **generated from the theme catalogue**, never written by
+hand: `THEME_KEYWORDS` in `project/pipelines/processing/utils/theme_tagger.py`
+drives both the tagging and the ingestion query. Editing `SEARCH_KEYWORDS`
+by hand makes the corpus drift away from what the dashboard offers — that
+divergence once dropped theme coverage to 0.3%.
+
 ```bash
-cd project/pipelines/ingestion/tweets_raw
-python extract.py --keywords "Ligue1 OR PSG OR OM" --max-results 250
+cd iac/dev
+docker compose run --rm --no-deps tweets-raw-producer \
+    python -m tweets_raw.extract \
+    --keywords "$(grep '^SEARCH_KEYWORDS=' ../.env.dev | cut -d= -f2-)" \
+    --max-results 40
+
 ```
 
 Useful options: `--no-scrape` (API only), `--skip-kafka` (test mode),
