@@ -232,12 +232,12 @@ class APIExtractor:
     def total_spent(self):
         """Total spent in dollars, including ledger if available. """
         prior = self._ledger.spent if self._ledger else 0.0
-        return prior
+        return prior + self.estimated_cost
 
     @property
     def remaining_budget(self) -> float:
         """Left budget in dollars"""
-        return max(0, self._budget_limit - self.estimated_cost)
+        return max(0, self._budget_limit - self.total_spent)
 
     @property
     def remaining_tweets(self) -> int:
@@ -246,9 +246,9 @@ class APIExtractor:
 
     def _check_budget(self) -> None:
         """Vérifie que le budget n'est pas dépassé avant une collecte."""
-        if self.estimated_cost >= self._budget_limit:
+        if self.total_spent >= self._budget_limit:
             raise BudgetExceededError(
-                f"Budget API dépassé: {self.estimated_cost:.2f}$ >= "
+                f"Budget API dépassé: {self.total_spent:.2f}$ >= "
                 f"{self._budget_limit}$ (limite). "
                 f"Arrêtez de collecter ou augmentez le budget."
             )
@@ -349,7 +349,7 @@ class APIExtractor:
             )
             detail = response.json().get("detail", "") if is_json else ""
             raise CreditDepletedError(
-                f"API X credit depleted ( {detail} or '402 Payment Required')"
+                f"API X credit depleted ( {detail or '402 Payment Required'})"
                 f"Rechargez votre compte ou attendez le reset du quota."
             )
 
@@ -449,7 +449,7 @@ class APIExtractor:
         # Mettre à jour le compteur budget
         tweets_count = len(all_tweets)
         self._tweets_fetched += tweets_count
-        if self.ledger:
+        if self._ledger:
             self._ledger.record(tweets_count, self._cost_per_tweet)
 
         logger.info(

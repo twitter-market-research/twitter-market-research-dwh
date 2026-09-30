@@ -22,6 +22,7 @@ class BudgetLedger:
             Budget limit in dollors (default 25.0).
     """
 
+    @classmethod
     def from_env(cls, limit: float = 25.0) -> Optional["BudgetLedger"]:
         """
         Create the ledger  if  "BUDGET_LEDGER_PATH" is set 
@@ -41,7 +42,7 @@ class BudgetLedger:
         path: str,
         limit: float = 25.0
     ):
-        self.path = path
+        self.path = Path(path)
         self.limit = limit
         self._state = self.load_state()
 
@@ -68,11 +69,18 @@ class BudgetLedger:
         return spent_budget
 
     @property
+    def tweets_fetched(self):
+        """
+        Cumulative number of billed tweets
+        """
+        return int(self._state.get("tweets_fetched", 0))
+
+    @property
     def remaining(self) -> float:
         """
         Left Budget in dollors, never negative.
         """
-        budget = max(0, self._limit - self.spent)
+        budget = max(0, self.limit - self.spent)
         return budget
 
     def record(
@@ -93,9 +101,11 @@ class BudgetLedger:
         """
         if tweets <= 0:
             return
-        self._state["twwets_fetched"] = (
+        self._state["tweets_fetched"] = (
             int(self._state.get("tweets_fetched", 0)) + tweets
         )
+
+        self._state["runs"] = int(self._state.get("runs", 0)) + 1
 
         self._state["spent"] = round(
             self.spent + tweets * cost_per_tweet, 4

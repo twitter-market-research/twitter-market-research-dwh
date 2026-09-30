@@ -3,7 +3,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 
 from project.pipelines.ingestion.tweets_raw.utils.api_extractor import (
-    APIExtractor, SearchConfig, APIError
+    APIExtractor, SearchConfig, APIError, CreditDepletedError
 )
 
 
@@ -499,3 +499,23 @@ class TestAPIExtractorBudgetTracking:
 
         with pytest.raises(APIError, match="budget"):
             extractor.search_tweets()
+
+
+class TestCreditDepleted:
+    """Un compte à sec doit lever, jamais renvoyer une collecte vide."""
+
+    @patch("project.pipelines.ingestion.tweets_raw.utils"
+           ".api_extractor.requests.get")
+    def test_402_raises(self, mock_get) -> None:
+        """Le 402 lève CreditDepletedError au lieu de retourner None."""
+        mock_get.return_value = _make_mock_response(
+            402,
+            {"detail": "credits depleted", "title": "Payment Required"},
+        )
+        extractor = APIExtractor("token", SearchConfig(keywords="Ligue1"))
+
+        with pytest.raises(CreditDepletedError) as excinfo:
+            extractor.search_tweets()
+
+        assert excinfo.value.status_code == 402
+        assert "credits depleted" in str(excinfo.value)

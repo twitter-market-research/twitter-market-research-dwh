@@ -58,9 +58,17 @@ class TestBudgetLedger:
         tmp_path,
         monkeypatch
     ) -> None:
-        monkeypatch.delenv("BUDGET_LEDGER_PATH", raising=False)
+        monkeypatch.setenv("BUDGET_LEDGER_PATH", str(tmp_path / "b.json"))
 
-        assert BudgetLedger.from_env() is None
+        assert isinstance(BudgetLedger.from_env(), BudgetLedger)
+
+    def test_tweets_fetched_accumulates(self, tmp_path) -> None:
+        """The tweet counter accumulates instead of holding the last batch."""
+        path = str(tmp_path / "budget.json")
+        BudgetLedger(path).record(40, 0.005)
+        BudgetLedger(path).record(60, 0.005)
+
+        assert BudgetLedger(path).tweets_fetched == 100
 
 
 
