@@ -28,8 +28,11 @@ services:
       TWIKIT_AUTH_TOKEN: ${TWIKIT_AUTH_TOKEN}
       LANG_FILTER: ${LANG_FILTER:-"fr"}
       BATCH_SIZE: ${BATCH_SIZE:-100}
-    # Also write logs to the shared volume so the audit-log shipper can tail
-    # them and forward them to the audit_logs topic.
+      # cumuled budget spent : by persisted ledger,
+      # not by process memory. This allows to keep track of
+      # the budget spent across multiple runs of the ingestion service.
+      BUDGET_LEDGER_PATH: /app/logs/api_budget.json
+
     command:
       - python
       - -m

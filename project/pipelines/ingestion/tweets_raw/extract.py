@@ -33,7 +33,7 @@ from typing import Optional
 
 # Notre pipeline
 from utils.hybrid_extractor import HybridExtractor, ExtractionResult
-from utils.api_extractor import BudgetExceededError
+from utils.api_extractor import BudgetExceededError, CreditDepletedError
 from utils.tweet_validator import TweetValidator
 from utils.tweet_serializer import TweetSerializer
 from utils.kafka_producer import TweetsRawProducer
@@ -210,6 +210,9 @@ def run_pipeline(args) -> int:
             keywords=args.keywords,
             max_results=args.max_results,
         )
+    except CreditDepletedError as exception:
+        logging.error(f"{exception}")
+        return 2
     except BudgetExceededError:
         logging.error("Budget API X dépassé. Arrêtez de collecter.")
         return 1
