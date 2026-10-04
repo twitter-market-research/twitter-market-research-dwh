@@ -12,8 +12,9 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 from pyspark.sql.types import ArrayType, StringType
 
-from project.pipelines.processing.utils.schema import TWEET_SCHEMA
-from project.pipelines.processing.utils.theme_tagger import tag_themes
+from src.pipelines.processing.utils.schema import TWEET_SCHEMA
+from src.pipelines.processing.utils.theme_tagger import tag_themes
+from src.pipelines.processing.utils.data_contract import staging_columns
 
 # Spark UDF wrapping the pure tag_themes() so the tested rules run per row.
 _tag_themes_udf = F.udf(
@@ -22,20 +23,7 @@ _tag_themes_udf = F.udf(
 )
 
 # Final projection written to the staging table (stable column order).
-_STAGING_COLUMNS = [
-    "tweet_id",
-    "author_id",
-    "lang",
-    "text",
-    "hashtags",
-    "like_count",
-    "retweet_count",
-    "engagement",
-    "themes",
-    "created_at",
-    "processed_at",
-]
-
+_STAGING_COLUMNS = staging_columns()
 
 def enrich_stream(raw: DataFrame) -> DataFrame:
     """Parse ``tweets_raw`` Kafka rows and add the analytical columns.
