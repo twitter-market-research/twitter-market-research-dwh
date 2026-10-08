@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from project.pipelines.processing.utils.theme_tagger import tag_themes
+from src.pipelines.processing.utils.theme_tagger import tag_themes
 
 
 def compute_engagement(record: Dict[str, Any]) -> int:

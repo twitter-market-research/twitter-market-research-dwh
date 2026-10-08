@@ -1,5 +1,5 @@
 
-from project.pipelines.processing.stream import config_from_env
+from src.pipelines.processing.stream import config_from_env
 
 
 class TestConfigFromEnv:

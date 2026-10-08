@@ -3,7 +3,7 @@
 No Spark needed: the batch DataFrame and both sinks are fakes that just
 record the calls they receive.
 """
-from project.pipelines.processing.utils.dual_sink import DualSink
+from src.pipelines.processing.utils.dual_sink import DualSink
 
 
 class FakeBatch:
@@ -57,7 +57,8 @@ class TestDualSink:
         assert batch.events == ["persist", "unpersist"]
 
     def test_unpersists_even_when_a_sink_fails(self) -> None:
-        """A leaked cached batch would eat executor memory batch after batch."""
+        """A leaked cached batch would eat executor memory batch after batch.
+        """
         batch = FakeBatch()
         events = []
         sink = DualSink(

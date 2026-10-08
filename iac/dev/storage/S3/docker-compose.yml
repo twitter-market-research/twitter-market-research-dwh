@@ -36,6 +36,7 @@ services:
       /bin/sh -c "
       mc alias set local http://minio:9000 $${MINIO_ROOT_USER:-minioadmin} $${MINIO_ROOT_PASSWORD:-minioadmin} &&
       mc mb --ignore-existing local/tweets-raw &&
+      mc ilm rule add --expire-days 90 local/tweets-raw && 
       echo 'Bucket tweets-raw pret.'
       "
     networks:

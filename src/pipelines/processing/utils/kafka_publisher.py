@@ -9,7 +9,7 @@ import logging
 
 from pyspark.sql import DataFrame
 
-from project.pipelines.processing.utils.transform import to_kafka_frame
+from src.pipelines.processing.utils.transform import to_kafka_frame
 
 logger = logging.getLogger(__name__)
 

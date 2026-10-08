@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from project.pipelines.processing.utils.theme_tagger import (
+from src.pipelines.processing.utils.theme_tagger import (
     THEME_KEYWORDS,
     LIGUE1_CONTEXT,
     tag_themes,
@@ -81,6 +81,6 @@ class TestTagThemes:
         """
         expected = build_search_query(LIGUE1_CONTEXT)
         env = ENV_DIST.read_text(encoding="utf-8")
-        line = next(l for l in env.splitlines()
+        line = next(l for l in env.splitlines()  # noqa: E741
                     if l.strip().startswith("SEARCH_KEYWORDS"))
         assert line.split("=", 1)[1].strip() == expected

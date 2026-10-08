@@ -60,15 +60,17 @@ groups:
         expr: |
           sum(rate(tweets_raw_producer_rejected_total[30m]))
           / clamp_min(
-          sum(rate(tweets_raw_producer_rejected_total[30m])),
-          0.001
-          )
-        > 0.05
+              sum(rate(tweets_raw_producer_sent_total[30m]))
+              + sum(rate(tweets_raw_producer_rejected_total[30m])),
+              0.001
+            )
+          > 0.05
         for: 10m
         labels:
           severity: warning
         annotations:
           summary: "Validation rate below the 95 % SLO"
+          description: "More than 5 % of collected tweets are rejected. See assets/governance.md."
         
         # ----- Paid-for tweets never acknowledged by Kafka ------#
       - alert: tweetsDeliveryFailed

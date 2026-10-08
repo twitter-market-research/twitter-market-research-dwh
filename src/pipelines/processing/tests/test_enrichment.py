@@ -1,4 +1,4 @@
-from project.pipelines.processing.utils.enrichment import (
+from src.pipelines.processing.utils.enrichment import (
     compute_engagement,
     enrich,
 )

@@ -1,20 +1,21 @@
 """
 """
 
+from pyspark.sql import SparkSession
 from datetime import datetime
 import json
 import pytest
 
 pytest.importorskip("pyspark")
 
-from project.pipelines.processing.utils.transform import (  # noqa: E402
+from src.pipelines.processing.utils.transform import (  # noqa: E402
     enrich_stream,
     to_kafka_frame,
 )
-from pyspark.sql import SparkSession
 
 
-# A well-formed tweet message, as produced by thne ingestion layer (TweetSerializer)
+# A well-formed tweet message, as produced by
+# thne ingestion layer (TweetSerializer)
 
 VALID_TWEET = {
     "tweet_id": "20",
@@ -29,7 +30,9 @@ VALID_TWEET = {
 
 @pytest.fixture(scope="module")
 def spark():
-    """Local single-threaded SparkSession for testing, or skip if no JVM is available."""
+    """Local single-threaded SparkSession for testing, or skip if no JVM is
+    available.
+    """
 
     try:
         session = (
@@ -77,7 +80,8 @@ class TestEnrichStream:
         assert row.hashtags == VALID_TWEET["hashtags"]
 
     def test_drops_unparseable_payloads(self, spark) -> None:
-        """A malformed payloads  should be dropped from the output DataFrame."""
+        """A malformed payloads  should be dropped from the output DataFrame.
+        """
         dataframe = _frame(spark, "{not a json}", json.dumps(VALID_TWEET))
         enriched = enrich_stream(dataframe)
         rows_to_drop = enriched.collect()

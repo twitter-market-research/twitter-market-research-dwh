@@ -2,9 +2,9 @@
 Governance tests for data contracts.
 """
 
-from pathlib.import Path
+from pathlib import Path
 
-from project.pipelines.processing.utils.data_contract import (
+from src.pipelines.processing.utils.data_contract import (
     CLASSES,
     DENYLIST,
     RETENTION_DAYS,
@@ -26,7 +26,7 @@ class TestDataContract:
         """
         No column may carry an unknown data class.
         """
-        for field in staging_columns():
+        for field in STAGING_CONTRACT:
             assert field.data_class in CLASSES, field.name
 
     def test_every_field_states_a_purpose(self) -> None:
@@ -42,7 +42,7 @@ class TestDataContract:
         Directly identifying fields
             must never be projected
         """
-        leaked = DENYLIST.intersection({f.name for f in staging_columns()})
+        leaked = DENYLIST.intersection(staging_columns())
         assert not leaked, f"personal data in silver: {sorted(leaked)}"
 
 
@@ -60,4 +60,13 @@ class TestRetentionIsEnforced:
 
         assert f"retention.ms={expected_ms}" in compose
 
-
+    def test_contract_matches_the_bigquery_schema(self) -> None:
+        """
+        The DDL and the contract cannot drift apart silently.
+        """
+        declared = [
+            line.split("name:", 1)[1].strip()
+            for line in SCHEMA_YAML.read_text(encoding="utf-8").splitlines()
+            if "- name" in line
+        ]
+        assert declared == staging_columns()

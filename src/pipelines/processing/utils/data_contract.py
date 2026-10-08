@@ -45,10 +45,10 @@ STAGING_CONTRACT: List[Field] = [
     Field("author_id", PSEUDONYMOUS, "unique-author counts, engagement"),
     Field("lang", NON_PERSONAL, "corpus filter"),
     Field("text", PERSONAL, "theme tagging, future sentiment"),
-    Field("hashtags", PERSONAL, "theme tagging"),
+    Field("hashtags", NON_PERSONAL, "theme tagging"),
     Field("like_count", NON_PERSONAL, "engagement metric"),
     Field("retweet_count", NON_PERSONAL, "engagement metric"),
-    Field("reply_count", NON_PERSONAL, "engagement metric"),
+    Field("engagement", NON_PERSONAL, "engagement metric"),
     Field("themes", DERIVED, "dashboard filter"),
     Field("created_at", NON_PERSONAL, "time_series"),
     Field("processed_at", NON_PERSONAL, "pipeline lineage")

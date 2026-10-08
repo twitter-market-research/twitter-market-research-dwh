@@ -15,7 +15,7 @@ import pytest
 
 pytest.importorskip("pyspark")
 
-from project.pipelines.processing.utils.schema import (  # noqa: E402
+from src.pipelines.processing.utils.schema import (  # noqa: E402
     TWEET_SCHEMA,
 )
 
