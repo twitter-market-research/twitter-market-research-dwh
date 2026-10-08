@@ -70,3 +70,19 @@ class TestRetentionIsEnforced:
             if "- name" in line
         ]
         assert declared == staging_columns()
+
+    def test_every_topic_carries_its_retention(self) -> None:
+        """
+        A retention decision that infra ignores is not a decision at all.
+        """
+        expected = {
+            "tweets_raw": 7 * 24 * 60 * 60 * 1000,
+            "tweets_enriched": RETENTION_DAYS * 24 * 60 * 60 * 1000,
+            "audit_logs": 14 * 24 * 60 * 60 * 1000,
+        }
+
+        compose = KAFKA_COMPOSE.read_text(encoding="utf-8")
+
+        for topic, ms in expected.items():
+            block = compose.split(f"--topic {topic}", 1)[1][:400]
+            assert f"retention.ms={ms}" in block, topic
