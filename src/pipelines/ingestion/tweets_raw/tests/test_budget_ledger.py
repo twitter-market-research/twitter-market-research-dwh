@@ -1,4 +1,4 @@
-from project.pipelines.ingestion.tweets_raw.utils.budget_ledger import (
+from src.pipelines.ingestion.tweets_raw.utils.budget_ledger import (
     BudgetLedger,
 )
 

@@ -13,7 +13,7 @@ services:
   # tweets raw producer service to fetch tweets from Twitter API and send to Kafka
   tweets-raw-producer:
     build:
-      context: ../../../project/pipelines/ingestion
+      context: ../../../src/pipelines/ingestion
       dockerfile: tweets_raw/Dockerfile
     container_name: tweets-raw-producer
     dns:
@@ -60,7 +60,7 @@ services:
   # logs producer service to send audit logs to Kafka
   logs-producer:
     build:
-      context: ../../../project/pipelines/ingestion
+      context: ../../../src/pipelines/ingestion
       dockerfile: audit_logs/Dockerfile
     container_name: logs-producer
     dns:

@@ -11,11 +11,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from project.pipelines.ingestion.audit_logs.utils.log_producer import (
+from src.pipelines.ingestion.audit_logs.utils.log_producer import (
     AuditLogProducer,
 )
 
-MODULE = "project.pipelines.ingestion.audit_logs.utils.log_producer"
+MODULE = "src.pipelines.ingestion.audit_logs.utils.log_producer"
 
 
 @pytest.fixture

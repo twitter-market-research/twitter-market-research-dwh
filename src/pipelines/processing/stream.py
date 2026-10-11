@@ -30,10 +30,10 @@ from typing import Mapping, Optional
 
 from pyspark.sql import DataFrame, SparkSession
 
-from project.pipelines.processing.utils.dual_sink import DualSink
-from project.pipelines.processing.utils.bq_writer import BigQueryBatchSink
-from project.pipelines.processing.utils.transform import enrich_stream
-from project.pipelines.processing.utils.kafka_publisher import (
+from src.pipelines.processing.utils.dual_sink import DualSink
+from src.pipelines.processing.utils.bq_writer import BigQueryBatchSink
+from src.pipelines.processing.utils.transform import enrich_stream
+from src.pipelines.processing.utils.kafka_publisher import (
     KafkaEnrichedPublisher,
 )
 

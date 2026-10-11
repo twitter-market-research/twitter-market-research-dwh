@@ -1,10 +1,10 @@
 # tests/test_hybrid_extractor.py
 from unittest.mock import MagicMock
 
-from project.pipelines.ingestion.tweets_raw.utils.hybrid_extractor import (
+from src.pipelines.ingestion.tweets_raw.utils.hybrid_extractor import (
     HybridExtractor,
 )
-from project.pipelines.ingestion.tweets_raw.utils.tweet_validator import (
+from src.pipelines.ingestion.tweets_raw.utils.tweet_validator import (
     ValidationResult,
 )
 

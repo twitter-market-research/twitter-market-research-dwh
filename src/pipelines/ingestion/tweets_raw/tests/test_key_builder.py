@@ -3,7 +3,7 @@
 Le club n'est plus la clé — il reste dans les hashtags de la valeur du
 message, pour l'agrégation en aval.
 """
-from project.pipelines.ingestion.tweets_raw.utils.key_builder import (
+from src.pipelines.ingestion.tweets_raw.utils.key_builder import (
     FALLBACK_KEY,
     KeyBuilder,
 )

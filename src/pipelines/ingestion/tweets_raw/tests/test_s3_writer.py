@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch, call
 import json
 import pytest
 
-from project.pipelines.ingestion.tweets_raw.utils.s3_writer import (
+from src.pipelines.ingestion.tweets_raw.utils.s3_writer import (
     S3RawWriter,
 )
 
@@ -10,7 +10,7 @@ from project.pipelines.ingestion.tweets_raw.utils.s3_writer import (
 @pytest.fixture
 def writer():
     with patch(
-        "project.pipelines.ingestion.tweets_raw.utils.s3_writer.boto3.client"
+        "src.pipelines.ingestion.tweets_raw.utils.s3_writer.boto3.client"
     ) as mock_client:
         w = S3RawWriter(
             endpoint_url="http://localhost:9000",

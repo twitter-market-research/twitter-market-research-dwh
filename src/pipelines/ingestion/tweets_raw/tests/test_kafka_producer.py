@@ -11,11 +11,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from project.pipelines.ingestion.tweets_raw.utils.kafka_producer import (
+from src.pipelines.ingestion.tweets_raw.utils.kafka_producer import (
     TweetsRawProducer,
 )
 
-MODULE = "project.pipelines.ingestion.tweets_raw.utils.kafka_producer"
+MODULE = "src.pipelines.ingestion.tweets_raw.utils.kafka_producer"
 
 
 @pytest.fixture

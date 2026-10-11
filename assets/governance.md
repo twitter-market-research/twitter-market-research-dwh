@@ -111,7 +111,7 @@ collection.
 ## 9. Schema evolution
 
 `iac/dev/storage/bigquery/staging_schema.yaml` is the contract;
-`project/pipelines/processing/utils/schema.py` is the reader. All fields are
+`src/pipelines/processing/utils/schema.py` is the reader. All fields are
 nullable by design because `from_json` yields nulls on malformed input —
 tightening them would let Catalyst prune the null guards in `transform.py`.
 New X API fields are ignored unless added to both files in the same commit.
