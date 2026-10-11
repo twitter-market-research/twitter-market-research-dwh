@@ -3,7 +3,7 @@
 TweetValidator
 ==============
 
-.. automodule:: project.pipelines.ingestion.tweets_raw.utils.tweet_validator
+.. automodule:: src.pipelines.ingestion.tweets_raw.utils.tweet_validator
    :members:
    :undoc-members:
    :show-inheritance:

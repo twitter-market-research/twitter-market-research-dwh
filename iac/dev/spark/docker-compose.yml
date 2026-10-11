@@ -21,7 +21,7 @@ services:
 
   spark-processing:
     build:
-      context: ../../../project
+      context: ../../../src
       dockerfile: pipelines/processing/Dockerfile
     image: twitter-research/processing:dev
     hostname: spark-processing

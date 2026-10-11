@@ -51,4 +51,32 @@ groups:
           severity: warning
         annotations:
           summary: "Low incoming messages rate detected"
-          description: "The rate of incoming messages to the Kafka cluster is very low for more than 10 minutes. This may indicate issues with producers or a drop in traffic."    
+          description: "The rate of incoming messages to the Kafka cluster is very low for more than 10 minutes. This may indicate issues with producers or a drop in traffic."
+  
+  - name: data_quality_alerts
+    rules:
+      # ------- Validation rate below the 95% SLO -------
+      - alert: tweetsRejectionRateHigh
+        expr: |
+          sum(rate(tweets_raw_producer_rejected_total[30m]))
+          / clamp_min(
+              sum(rate(tweets_raw_producer_sent_total[30m]))
+              + sum(rate(tweets_raw_producer_rejected_total[30m])),
+              0.001
+            )
+          > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Validation rate below the 95 % SLO"
+          description: "More than 5 % of collected tweets are rejected. See assets/governance.md."
+        
+        # ----- Paid-for tweets never acknowledged by Kafka ------#
+      - alert: tweetsDeliveryFailed
+        expr: increase(tweets_raw_producer_delivery_failed_total[15m]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "Billed tweets were lost before kafka"
+          description: "{{ $value }} messages were billed but never acknowledged by kafka"

@@ -3,7 +3,7 @@
 KeyBuilder
 ==========
 
-.. automodule:: project.pipelines.ingestion.tweets_raw.utils.key_builder
+.. automodule:: src.pipelines.ingestion.tweets_raw.utils.key_builder
    :members:
    :undoc-members:
    :show-inheritance:

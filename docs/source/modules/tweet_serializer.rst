@@ -3,7 +3,7 @@
 TweetSerializer
 ===============
 
-.. automodule:: project.pipelines.ingestion.tweets_raw.utils.tweet_serializer
+.. automodule:: src.pipelines.ingestion.tweets_raw.utils.tweet_serializer
    :members:
    :undoc-members:
    :show-inheritance:

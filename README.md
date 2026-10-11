@@ -36,7 +36,7 @@ agent), which are scraped by **Prometheus**, with alerting handled by
 ## Repository Structure
 
 ```
-project/pipelines/
+src/pipelines/
 ingestion/
 tweets_raw/          # Main pipeline (operational, tested)
 utils/             # api_extractor, hybrid_extractor, kafka_producer,
@@ -95,7 +95,7 @@ Prometheus, and AlertManager, and creates the topics (`tweets_raw`,
 ### 3. Start a collection
 
 The search query is **generated from the theme catalogue**, never written by
-hand: `THEME_KEYWORDS` in `project/pipelines/processing/utils/theme_tagger.py`
+hand: `THEME_KEYWORDS` in `src/pipelines/processing/utils/theme_tagger.py`
 drives both the tagging and the ingestion query. Editing `SEARCH_KEYWORDS`
 by hand makes the corpus drift away from what the dashboard offers — that
 divergence once dropped theme coverage to 0.3%.
@@ -130,12 +130,12 @@ Useful options: `--no-scrape` (API only), `--skip-kafka` (test mode),
 The suite uses a dedicated virtual environment.
 
 ```bash
-python -m venv project/.venv
-project/.venv/Scripts/python -m pip install -r \
-project/pipelines/ingestion/requirements.txt pytest pytest-cov
+python -m venv src/.venv
+src/.venv/Scripts/python -m pip install -r \
+src/pipelines/ingestion/requirements.txt pytest pytest-cov
 
 # Run the tweets_raw suite
-project/.venv/Scripts/python -m pytest project/pipelines/ingestion/tweets_raw/tests/
+src/.venv/Scripts/python -m pytest src/pipelines/ingestion/tweets_raw/tests/
 ```
 
 Current status: **91 passing tests** for the `tweets_raw` pipeline.
