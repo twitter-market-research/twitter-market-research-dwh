@@ -10,6 +10,7 @@ venv/
 iac/.env.*
 !*.env.example
 !iac/.env.dist
+reports/
 
 
 # Logs
