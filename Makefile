@@ -44,21 +44,19 @@ test: ## Suite complète, avec rapports JUnit et couverture
 		--cov-report=term-missing
 
 test-ingestion: ## Suite d'ingestion seule (sans JVM)
-		$(PYTHON) -m pytest src/pipelines/processing $(PYTEST_FLAG)
+		$(PYTHON) -m pytest src/pipelines/ingestion $(PYTEST_FLAG)
 
+test-processing: ## Suite processing seule (Spark requis pour tout exécuter)
+				 $(PYTHON) -m pytest src/piplines/processing ${PYTEST_FLAG}
 # ----- Etape gouvernance -----------------------------------------
 
 governance: governance-contract governance-infra
 
 governance-contract: ## testing all features aof the data-contract
 		$(PYTHON) -m pytest \
-		  src/pipelines/processing/test_data_contract.py $(PYTEST_FLAGS)
+		  src/pipelines/processing/tests/test_data_contract.py $(PYTEST_FLAGS)
 
 governance-infra: # Infrastructure YAML and Prometheus rules 
-		$(PYTHON) -c "import pathlib, sys, yaml; \
-		  bad = [f'{p}: {e}' for p in sorted(pathlib.Path('iac').rglob('*.y*ml')) \ 
-		  		 for e in [None] if (lambda: False)()']; \
-		  sys.exit(0)"
 		@$(PYTHON) scripts/check_infra_yaml.py
 		docker run --rm -v "$(CURDIR):/w"  --entrypoint promtool \
 		  prom/prometheus:v2.53.0 check rules /w/$(ALERT_RULES)
