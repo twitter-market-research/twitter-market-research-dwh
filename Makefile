@@ -114,5 +114,8 @@ build-verify: build ## Smoke test des images construites
 				python -m tweets-raw.extract --help
 				$(COMPOSE) run --rm --no-deps --entrypoint python logs-producer \
 				-c "import audit_logs.extract; print('audit_logs OK')"
-				$(COMPOSE) run --rm --no-deps --entrypoint
+				$(COMPOSE) run --rm --no-deps --entrypoint python3 spark-processing \
+				-c "import src.pipelines.processing.stream; print('stream OK')"
+
+
 
