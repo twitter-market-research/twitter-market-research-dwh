@@ -32,7 +32,7 @@ RUN python3 -m pip install --no-cache-dir \
 
 # ------ Job code --------------------------
 
-COPY pipelines/processing ./project/pipelines/processing
+COPY pipelines/processing ./src/pipelines/processing
 ENV PYTHONPATH=/app:/opt/spark/python:/opt/spark/python/lib/py4j-0.10.9.7-src.zip
 
 # Checkpoint dir owned by the runtime user, so a fresh named volume
@@ -44,4 +44,4 @@ USER spark
 
 ENTRYPOINT ["/opt/spark/bin/spark-submit"]
 CMD ["--master", "local[*]", \
-    "/app/project/pipelines/processing/stream.py"]
+    "/app/src/pipelines/processing/stream.py"]

@@ -11,6 +11,7 @@ REPORTS      := reports
 PYTEST_FLAGS := -q
 COMPOSE      := docker compose -f iac/dev/docker-compose.yml
 ALERT_RULES  := iac/dev/kafka/monitoring/prometheus/alert_rules.yml
+IMAGES := tweets-raw-producer logs-producer spark-processing
 
 .PHONY: help install test test-ingestion test-processing governance \
 		governance-contract governance-infra check lint up down logs \
@@ -77,7 +78,7 @@ down: ## Stop all the stack
 		$(COMPOSE) down
 
 logs: ## Follow logs of Spark job
-		$(COMPOSE logs -f spark-processing)
+		$(COMPOSE) logs -f spark-processing
 
 
 
@@ -94,3 +95,24 @@ retention-apply: ## Apply declared retentions to existing topics
 clean: ## Drop the artifacts of the test
 		rm -rf $(REPORTS) .pytest_cache .coverage
 		find src -name "__pycache__" -type d-prune -exec rm -rf {} +
+
+
+# --------------- Etape build ---------------------------------------
+# Les trois images applicatives. L'image broker de iac/dev/kafka est
+# exclue parce qu'en prod strimzi nous fournira kakfa
+
+
+build: ## Construit les images applicatives
+			$(COMPOSE) build $(IMAGES)
+
+# Vérifier DANS l'image, jamais sur la source. Un backfill a déjà échoué
+# sur des drapeaux présents dans le dépot mais absents du conteneur, et
+# test ne le voie : seul un import réel dans l'image le révèle.
+
+build-verify: build ## Smoke test des images construites
+				$(COMPOSE) run --rm --no deps tweets-raw-producer \
+				python -m tweets-raw.extract --help
+				$(COMPOSE) run --rm --no-deps --entrypoint python logs-producer \
+				-c "import audit_logs.extract; print('audit_logs OK')"
+				$(COMPOSE) run --rm --no-deps --entrypoint
+
