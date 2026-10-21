@@ -123,7 +123,7 @@ build: $(ENV_DEV) ## Construit les images applicatives
 
 build-verify: build ## Smoke test des images construites
 				$(COMPOSE) run --rm --no-deps tweets-raw-producer \
-				python -m tweets-raw.extract --help
+				python -m tweets_raw.extract --help
 				$(COMPOSE) run --rm --no-deps --entrypoint python logs-producer \
 				-c "import audit_logs.extract; print('audit_logs OK')"
 				$(COMPOSE) run --rm --no-deps --entrypoint python3 spark-processing \
