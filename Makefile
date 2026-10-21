@@ -11,11 +11,13 @@ REPORTS      := reports
 PYTEST_FLAGS := -q
 COMPOSE      := docker compose -f iac/dev/docker-compose.yml
 ALERT_RULES  := iac/dev/kafka/monitoring/prometheus/alert_rules.yml
-IMAGES := tweets-raw-producer logs-producer spark-processing
+IMAGES 		 := tweets-raw-producer logs-producer spark-processing
+ENV_DEV      := iac/.env.dev
+ENV_DIST     := iac/.env.dist
 
 .PHONY: help install test test-ingestion test-processing governance \
 		governance-contract governance-infra check lint up down logs \
-		retention-apply clean
+		retention-apply clean env build build-verify
 
 
 # ------- Aide ----------------------------------------------------
@@ -96,13 +98,23 @@ clean: ## Drop the artifacts of the test
 		rm -rf $(REPORTS) .pytest_cache .coverage
 		find src -name "__pycache__" -type d-prune -exec rm -rf {} +
 
+#Les blocs `include` du compose exigent iac/.env.dev, gitignoré car il
+# porte les secrets. En CI il n'existe pas : on le dérive du template.
+# Les valeurs factices suffisent à CONSTRUIRE les images — les secrets ne
+# servent qu'à l'exécution.
+
+$(ENV_DEV):
+			cp $(ENV_DIST) $@
+
+env: $(ENV_DEV) ## Crée iac/.env.dev depuis le bon template s'il manque
+
 
 # --------------- Etape build ---------------------------------------
 # Les trois images applicatives. L'image broker de iac/dev/kafka est
 # exclue parce qu'en prod strimzi nous fournira kakfa
 
 
-build: ## Construit les images applicatives
+build: $(ENV_DEV) ## Construit les images applicatives
 			$(COMPOSE) build $(IMAGES)
 
 # Vérifier DANS l'image, jamais sur la source. Un backfill a déjà échoué
@@ -110,7 +122,7 @@ build: ## Construit les images applicatives
 # test ne le voie : seul un import réel dans l'image le révèle.
 
 build-verify: build ## Smoke test des images construites
-				$(COMPOSE) run --rm --no deps tweets-raw-producer \
+				$(COMPOSE) run --rm --no-deps tweets-raw-producer \
 				python -m tweets-raw.extract --help
 				$(COMPOSE) run --rm --no-deps --entrypoint python logs-producer \
 				-c "import audit_logs.extract; print('audit_logs OK')"
