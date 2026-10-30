@@ -63,7 +63,7 @@ jobs:
       - id: version
         run: echo "tag=v$(cat VERSION)" >> "GITHUB_OUTPUT"
 
-      - uses: google-github-actions/aut@v2
+      - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.WIF_PROVIDER }}
           service_account: ${{ vars.CI_SERVICE_ACCOUNT }}
