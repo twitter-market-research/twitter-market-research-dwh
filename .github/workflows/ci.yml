@@ -57,6 +57,21 @@ jobs:
 
       # Valide les constants de build declarés dans le compose
       - run: make build-verify
+      - run: make version-bump
+
+      # La version n'existe qu'après le bump
+      - id: version
+        run: echo "tag=v$(cat VERSION)" >> "GITHUB_OUTPUT"
+
+      - uses: google-github-actions/aut@v2
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.CI_SERVICE_ACCOUNT }}
+      - run: gcloud auth configure-docker europe-west1-docker.pkg
+      - run: make images-push VERSION_TAG=${{ steps.version.outputs.tag }}
+
+      - run: git push --follow-tags
+
 
 
   

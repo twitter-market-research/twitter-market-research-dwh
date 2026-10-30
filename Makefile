@@ -7,6 +7,8 @@ else
 PYTHON ?= python
 endif
 
+REGISTRY    ?= europe=west1-docker.pkg.dev/$(GCP_PROJECT_ID)/twitter-market-research
+VERSION_TAG ?= v$(shell cat VERSION 2>/dev/null)
 REPORTS      := reports
 PYTEST_FLAGS := -q
 COMPOSE      := docker compose -f iac/dev/docker-compose.yml
@@ -128,6 +130,17 @@ build-verify: build ## Smoke test des images construites
 				-c "import audit_logs.extract; print('audit_logs OK')"
 				$(COMPOSE) run --rm --no-deps --entrypoint python3 spark-processing \
 				-c "import src.pipelines.processing.stream; print('stream OK')"
+
+# Deploiment par version explicite : aucun tag 'latest' n'est poussé.
+# le registre est en immutable tags, donc un push d'une version déjà présente échoue
+images-push: ## Pousse les trois images sous leur tag de version
+				@test -n "$(GCP_PROJECT_ID)" || \
+				  { echo "GCP_PROJECT_ID requis"; exit 1; }
+				@for img in ${IMAGES}; do \
+				  docker tag twitter-market-research-$$img:latest \
+				  	${REGISTRY}/$$img:${VERSION_TAG}; \
+				  docker push ${REGISTRY}/$$img:${VERSION_TAG}; \
+				done
 
 
 
