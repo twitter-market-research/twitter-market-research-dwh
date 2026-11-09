@@ -105,7 +105,9 @@ def load_s3_config() -> Optional[dict]:
         "endpoint_url": endpoint,
         "bucket": os.environ.get("S3_BUCKET", "tweets-raw"),
         "aws_access_key_id": os.environ.get("MINIO_ROOT_USER", "minioadmin"),
-        "aws_secret_access_key": os.environ.get("MINIO_ROOT_PASSWORD", "minioadmin"),
+        "aws_secret_access_key": os.environ.get(
+            "MINIO_ROOT_PASSWORD", "minioadmin"
+        ),
     }
 
 
@@ -240,7 +242,8 @@ def run_pipeline(args) -> int:
     print(f"  Envoyés Kafka:     {result.tweets_sent_to_kafka}")
     print(f"  Coût API estimé:   ~{result.api_cost_estimate:.2f}$")
     print(f"  Budget restant:    ~{result.remaining_budget:.2f}$")
-    print(f"  Collectes restantes: ~{int(result.remaining_budget / 0.005 / 250)}")
+    remaining_runs = int(result.remaining_budget / 0.005 / 250)
+    print(f"  Collectes restantes: ~{remaining_runs}")
     print("=" * 60)
 
     if result.errors:
@@ -258,7 +261,9 @@ def run_pipeline(args) -> int:
 def parse_args() -> argparse.Namespace:
     """Parse les arguments CLI."""
     parser = argparse.ArgumentParser(
-        description="Pipeline de collecte tweets X pour étude de marché Ligue 1",
+        description=(
+            "Pipeline de collecte tweets X pour étude de marché Ligue 1"
+        ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Exemples

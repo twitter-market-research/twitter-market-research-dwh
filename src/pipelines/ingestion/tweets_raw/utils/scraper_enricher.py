@@ -3,8 +3,10 @@
 ScraperEnricher — Enrichissement des profils utilisateurs via scraping.
 
 Stratégie hybride :
-  - API X (pay-per-use) → collecte les tweets bruts (author_id, text, created_at...)
-  - twikit (gratuit) → enrichit les profils users (username, followers, verified...)
+  - API X (pay-per-use) → collecte les tweets bruts
+    (author_id, text, created_at...)
+  - twikit (gratuit) → enrichit les profils users
+    (username, followers, verified...)
 
 Usage
 -----
@@ -16,7 +18,7 @@ Usage
 
 import logging
 import asyncio
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from collections import OrderedDict
 from typing import Optional, List, Dict, Any
 
@@ -94,7 +96,10 @@ class UserProfile:
             following_count=int(data.get("following_count", 0) or 0),
             verified=bool(data.get("verified", False)),
             description=data.get("description") or data.get("bio"),
-            profile_image_url=data.get("profile_image_url") or data.get("profile_image_url_https"),
+            profile_image_url=(
+                data.get("profile_image_url")
+                or data.get("profile_image_url_https")
+            ),
             location=data.get("location"),
             created_at=data.get("created_at"),
             is_blue_verified=bool(data.get("is_blue_verified", False)),
@@ -408,10 +413,14 @@ class ScraperEnricher:
                     following_count=user.friends_count or 0,
                     verified=bool(user.verified),
                     description=user.description,
-                    profile_image_url=getattr(user, "profile_image_url_https", None),
+                    profile_image_url=getattr(
+                        user, "profile_image_url_https", None
+                    ),
                     location=getattr(user, "location", None),
                     created_at=getattr(user, "created_at", None),
-                    is_blue_verified=bool(getattr(user, "is_blue_verified", False)),
+                    is_blue_verified=bool(
+                        getattr(user, "is_blue_verified", False)
+                    ),
                 )
 
                 # Mettre en cache (clé = username, cohérent avec la lecture)
@@ -421,7 +430,8 @@ class ScraperEnricher:
                 self.stats["success"] += 1
 
                 logger.debug(
-                    f"Profil @{username} scrapé: {profile.followers_count} followers"
+                    f"Profil @{username} scrapé: "
+                    f"{profile.followers_count} followers"
                 )
                 return profile
 

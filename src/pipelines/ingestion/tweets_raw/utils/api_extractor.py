@@ -470,7 +470,8 @@ class APIExtractor:
         """
         params: Dict[str, Any] = {
             "query": self._config.query,
-            "max_results": min(self._config.max_results, 100),  # API hard limit
+            # API hard limit
+            "max_results": min(self._config.max_results, 100),
             "expansions": ",".join(self._config.expansions),
             "tweet.fields": ",".join(self._config.tweet_fields),
         }
@@ -478,7 +479,9 @@ class APIExtractor:
         # Filtre de langue
         if self._config.lang:
             params["query"] = f"{params['query']} lang:{self._config.lang}"
-            logger.debug(f"Filtre langue ajouté à la query: lang:{self._config.lang}")
+            logger.debug(
+                f"Filtre langue ajouté à la query: lang:{self._config.lang}"
+            )
 
         # Filtres temporels
         if self._config.start_time:
@@ -510,15 +513,17 @@ class APIExtractor:
         List[str]
             Liste des author_id uniques.
         """
-        author_ids = list({t.get("author_id") for t in tweets if t.get("author_id")})
+        author_ids = list(
+            {t.get("author_id") for t in tweets if t.get("author_id")}
+        )
         logger.debug(f"Author IDs uniques extraits: {len(author_ids)} users")
         return author_ids
 
     def reset_counters(self) -> None:
         """
         Réinitialise les compteurs de budget.
-        À utiliser avec précaution — ne réinitialise pas le vrai compteur API X.
+        À utiliser avec précaution : ne réinitialise pas le vrai
+        compteur API X.
         """
         self._tweets_fetched = 0
         logger.info("Compteurs budget réinitialisés")
-

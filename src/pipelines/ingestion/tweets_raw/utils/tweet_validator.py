@@ -4,7 +4,7 @@ from typing import List
 ALLOWED_LANGS = ["fr"]
 REQUIRED_FIELDS = [
     "id",
-    "text", 
+    "text",
     "created_at",
     "lang",
     "author_id",

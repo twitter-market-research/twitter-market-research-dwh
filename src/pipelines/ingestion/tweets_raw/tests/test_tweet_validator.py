@@ -1,4 +1,6 @@
-from src.pipelines.ingestion.tweets_raw.utils.tweet_validator import TweetValidator
+from src.pipelines.ingestion.tweets_raw.utils.tweet_validator import (
+    TweetValidator,
+)
 
 
 class TestTweetValidator:

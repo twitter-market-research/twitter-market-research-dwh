@@ -1,6 +1,8 @@
 import json
 import pytest
-from src.pipelines.ingestion.tweets_raw.utils.tweet_serializer import TweetSerializer
+from src.pipelines.ingestion.tweets_raw.utils.tweet_serializer import (
+    TweetSerializer,
+)
 
 
 class TestTweetSerializer:

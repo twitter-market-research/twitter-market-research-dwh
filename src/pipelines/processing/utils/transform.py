@@ -25,6 +25,7 @@ _tag_themes_udf = F.udf(
 # Final projection written to the staging table (stable column order).
 _STAGING_COLUMNS = staging_columns()
 
+
 def enrich_stream(raw: DataFrame) -> DataFrame:
     """Parse ``tweets_raw`` Kafka rows and add the analytical columns.
 
@@ -88,4 +89,3 @@ def to_kafka_frame(enriched: DataFrame) -> DataFrame:
         F.col("tweet_id").cast("string").alias("key"),
         F.to_json(F.struct(*_STAGING_COLUMNS)).alias("value"),
     )
-

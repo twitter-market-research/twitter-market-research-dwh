@@ -68,6 +68,8 @@ class TestScraperEnricherFallback:
         """Si twikit plante, le tweet garde ses données API uniquement"""
 
 # RED 4 — rate limiting du scraper
+
+
 class TestScraperEnricherRateLimit:
     def test_enrich_respects_rate_limit_between_requests(self):
         """Un délai est respecté entre chaque appel twikit"""

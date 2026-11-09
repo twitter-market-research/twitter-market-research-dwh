@@ -67,7 +67,8 @@ class S3RawWriter:
             key = (
                 f"{self._prefix}/"
                 f"year={now.year:04d}/month={now.month:02d}/day={now.day:02d}/"
-                f"batch_{now.strftime('%Y%m%dT%H%M%S')}_{uuid.uuid4().hex[:8]}.ndjson"
+                f"batch_{now.strftime('%Y%m%dT%H%M%S')}"
+                f"_{uuid.uuid4().hex[:8]}.ndjson"
             )
 
             body = "\n".join(
@@ -81,7 +82,10 @@ class S3RawWriter:
                 ContentType="application/x-ndjson",
             )
 
-            logger.info(f"S3 flush OK: {count} tweets → s3://{self._bucket}/{key}")
+            logger.info(
+                f"S3 flush OK: {count} tweets → "
+                f"s3://{self._bucket}/{key}"
+            )
             return count
 
         except Exception as e:

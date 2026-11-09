@@ -156,7 +156,8 @@ class HybridExtractor:
     collecte complète de tweets enrichis avec profils utilisateurs.
 
     Workflow complet :
-        1. search_tweets() — API X → tweets bruts (author_id, text, created_at...)
+        1. search_tweets() — API X → tweets bruts
+           (author_id, text, created_at...)
         2. enrich_users() — twikit → profils (username, followers, verified...)
         3. merge() — combine tweets + profils → tweets enrichis
         4. validate() — filtre les tweets valides
@@ -273,7 +274,8 @@ class HybridExtractor:
         s3_writer=None,
     ) -> None:
         """
-        Injecte les composants du pipeline (validator, serializer, producer, s3_writer).
+        Injecte les composants du pipeline (validator, serializer,
+        producer, s3_writer).
 
         Permet l'injection de dépendances pour les tests et la flexibilité.
         """
@@ -329,14 +331,17 @@ class HybridExtractor:
 
             if not self._raw_tweets:
                 logger.warning("Aucun tweet trouvé pour cette recherche")
-                result.metadata["finished_at"] = datetime.now(timezone.utc).isoformat()
+                result.metadata["finished_at"] = (
+                    datetime.now(timezone.utc).isoformat()
+                )
                 result.success = True  # Pas une erreur, juste vide
                 return result
 
             result.tweets_fetched = len(self._raw_tweets)
-            result.author_ids_found = len(
-                set(t.get("author_id") for t in self._raw_tweets if t.get("author_id"))
-            )
+            result.author_ids_found = len({
+                t.get("author_id") for t in self._raw_tweets
+                if t.get("author_id")
+            })
             logger.info(
                 f"[1/5] {result.tweets_fetched} tweets collectés, "
                 f"{result.author_ids_found} auteurs uniques"
@@ -349,10 +354,14 @@ class HybridExtractor:
                 result.users_enriched = len(self._user_profiles)
                 logger.info(
                     f"[2/5] {result.users_enriched} profils enrichis "
-                    f"(cache hit rate: {self._scraper_enricher._cache.hit_rate:.1%})"
+                    "(cache hit rate: "
+                    f"{self._scraper_enricher._cache.hit_rate:.1%})"
                 )
             else:
-                logger.info("[2/5] Enrichissement profils SKIP (scrape_user_profiles=False)")
+                logger.info(
+                    "[2/5] Enrichissement profils SKIP "
+                    "(scrape_user_profiles=False)"
+                )
 
             # ─── Étape 4 : Merge tweets + profils ────────────────────
             logger.info("[3/5] Fusion tweets + profils...")
@@ -387,7 +396,9 @@ class HybridExtractor:
             result.success = True
             result.api_cost_estimate = self._api_extractor.estimated_cost
             result.remaining_budget = self._api_extractor.remaining_budget
-            result.metadata["finished_at"] = datetime.now(timezone.utc).isoformat()
+            result.metadata["finished_at"] = (
+                datetime.now(timezone.utc).isoformat()
+            )
 
         except BudgetExceededError as e:
             self._errors.append(f"BUDGET: {e}")
@@ -477,7 +488,7 @@ class HybridExtractor:
                 logger.warning(
                     "Aucun token d'authentification twikit fourni — "
                     "le scraper ne pourra pas enrichir les profils"
-            )
+                    )
 
     def _merge(self) -> List[Dict[str, Any]]:
         """
@@ -505,10 +516,13 @@ class HybridExtractor:
                 # Profil non trouvé → tweet brut sans enrichissement
                 enriched.append(dict(tweet))
 
-            logger.debug(f"Tweet {tweet.get('id')} enrichi: {author_id in self._user_profiles}")
+            logger.debug(
+                f"Tweet {tweet.get('id')} enrichi: "
+                f"{author_id in self._user_profiles}"
+            )
 
         return enriched
-    
+
     def _validate(self) -> Dict[str, Any]:
         """
         Valide les tweets enrichis via TweetValidator.
@@ -565,7 +579,9 @@ class HybridExtractor:
             return 0
 
         if self._producer is None:
-            logger.warning("_send_to_kafka: producer non initialisé — skip Kafka")
+            logger.warning(
+                "_send_to_kafka: producer non initialisé — skip Kafka"
+            )
             return 0
 
         sent_count = 0
@@ -587,7 +603,9 @@ class HybridExtractor:
         if remaining > 0:
             logger.error(f"FLUSH INCOMPLET: {remaining} messages non livrés")
 
-        logger.info(f"_send_to_kafka: {sent_count}/{len(tweets)} tweets envoyés")
+        logger.info(
+            f"_send_to_kafka: {sent_count}/{len(tweets)} tweets envoyés"
+        )
         return sent_count
 
     def _enrich_users(self) -> Dict[str, UserProfile]:
@@ -617,7 +635,10 @@ class HybridExtractor:
         ))
 
         if not usernames:
-            logger.warning("Aucun username trouvé dans les tweets bruts — enrichissement impossible")
+            logger.warning(
+                "Aucun username trouvé dans les tweets bruts — "
+                "enrichissement impossible"
+            )
             return {}
 
         profiles_list = asyncio.run(

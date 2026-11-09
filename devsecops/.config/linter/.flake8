@@ -1,0 +1,12 @@
+[flake8]
+max-line-length = 79
+
+# src/.venv vit DANS src/, et flake8 n'exclut pas .venv par defaut : sans
+# cette ligne il lint pytest, yaml et dateutil, soit ~74 000 violations qui
+# noient les 102 reelles.
+exclude =
+    .git,
+    __pycache__,
+    .pytest_cache,
+    src/.venv,
+    docs/_build

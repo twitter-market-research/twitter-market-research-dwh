@@ -28,6 +28,7 @@ VALID_TWEET = {
     "hashtags": ["test", "tweet"]
 }
 
+
 @pytest.fixture(scope="module")
 def spark():
     """Local single-threaded SparkSession for testing, or skip if no JVM is
@@ -94,7 +95,10 @@ class TestEnrichStream:
 
         dataframe = _frame(spark, json.dumps(VALID_TWEET))
         enriched = enrich_stream(dataframe)
-        assert enriched.collect()[0]["engagement"] == VALID_TWEET["like_count"] + VALID_TWEET["retweet_count"]
+        expected = (
+            VALID_TWEET["like_count"] + VALID_TWEET["retweet_count"]
+        )
+        assert enriched.collect()[0]["engagement"] == expected
 
     def test_null_counters_default_to_zero(self, spark) -> None:
         """
@@ -110,7 +114,10 @@ class TestEnrichStream:
         self,
         spark,
     ) -> None:
-        payload = dict(VALID_TWEET, text="This is a test tweet about var and other things")
+        payload = dict(
+            VALID_TWEET,
+            text="This is a test tweet about var and other things",
+        )
         dataframe = _frame(spark, json.dumps(payload))
         assert enrich_stream(dataframe).collect()[0]["themes"] == ["var"]
 
@@ -120,7 +127,10 @@ class TestEnrichStream:
         assert enrich_stream(dataframe).collect()[0]["themes"] == []
 
     def test_projects_the_staging_columns(self, spark) -> None:
-        """The output DataFrame should only contain the columns needed for the staging table."""
+        """
+        The output DataFrame should only contain the columns needed
+        for the staging table.
+        """
         dataframe = _frame(spark, json.dumps(VALID_TWEET))
         enriched = enrich_stream(dataframe)
         assert set(enriched.columns) == {

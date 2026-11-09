@@ -25,7 +25,7 @@ class BudgetLedger:
     @classmethod
     def from_env(cls, limit: float = 25.0) -> Optional["BudgetLedger"]:
         """
-        Create the ledger  if  "BUDGET_LEDGER_PATH" is set 
+        Create the ledger if "BUDGET_LEDGER_PATH" is set
         in the environment variables.
 
         Returns
@@ -55,7 +55,7 @@ class BudgetLedger:
             with self.path.open(encoding="utf-8") as handle:
                 return json.load(handle)
         except FileNotFoundError:
-            return empty_state 
+            return empty_state
         except (json.JSONDecodeError, OSError) as e:
             logger.warning(f"ledger unreadable ({e}) - reset")
             return empty_state

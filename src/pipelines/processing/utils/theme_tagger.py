@@ -62,7 +62,9 @@ def _normalize(text: str) -> str:
         Lowercased, accent-free version (e.g. ``"vidéo"`` -> ``"video"``).
     """
     decomposed = unicodedata.normalize("NFKD", text)
-    without_accents = "".join(c for c in decomposed if not unicodedata.combining(c))
+    without_accents = "".join(
+        c for c in decomposed if not unicodedata.combining(c)
+    )
     return without_accents.lower()
 
 
@@ -96,7 +98,9 @@ def _matches(
         if re.search(rf"\b{re.escape(kw_norm)}\b", text_norm):
             return True
         compact = re.sub(r"[\s-]", "", kw_norm)
-        if compact and any(compact in re.sub(r"-", "", h) for h in hashtags_norm):
+        if compact and any(
+            compact in re.sub(r"-", "", h) for h in hashtags_norm
+        ):
             return True
     return False
 

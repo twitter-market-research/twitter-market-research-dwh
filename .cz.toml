@@ -1,0 +1,13 @@
+# Versionnage dérivé des Conventional Commits.
+#
+# .cz.toml plutôt que pyproject.toml : la présence d'un pyproject.toml
+# déplacerait le rootdir de pytest, et la collecte vient tout juste
+# d'être stabilisée après le renommage vers src/.
+[tool.commitizen]
+name = "cz_conventional_commits"
+version = "0.1.0"
+version_files = ["VERSION"]
+tag_format = "v$version"
+update_changelog_on_bump = true
+changelog_file = "CHANGELOG.md"
+major_version_zero = true

@@ -32,7 +32,9 @@ class TestAuditLogProducer:
     def test_structured_line_is_parsed(self, producer_and_mock):
         producer, mock_producer = producer_and_mock
 
-        producer.ship("2026-08-12 15:13:52 [ERROR] api_extractor: budget exceeded")
+        producer.ship(
+            "2026-08-12 15:13:52 [ERROR] api_extractor: budget exceeded"
+        )
 
         mock_producer.produce.assert_called_once()
         _, kwargs = mock_producer.produce.call_args

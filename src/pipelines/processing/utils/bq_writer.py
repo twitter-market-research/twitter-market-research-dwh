@@ -40,7 +40,8 @@ class BigQueryBatchSink:
             GCP project id (any string works against the emulator).
         api_endpoint : Optional[str]
             Emulator endpoint (e.g. ``http://bq-emulator:9050``). When set the
-            client uses anonymous credentials. Leave ``None`` for real BigQuery.
+            client uses anonymous credentials. Leave ``None`` for
+            real BigQuery.
         """
         self._table = table
         self._project = project

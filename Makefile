@@ -7,7 +7,8 @@ else
 PYTHON ?= python
 endif
 
-REGISTRY    ?= europe=west1-docker.pkg.dev/$(GCP_PROJECT_ID)/twitter-market-research
+AR_REPO     ?= dwh
+REGISTRY    ?= europe-west1-docker.pkg.dev/$(GCP_PROJECT_ID)/$(AR_REPO)
 VERSION_TAG ?= v$(shell cat VERSION 2>/dev/null)
 REPORTS      := reports
 PYTEST_FLAGS := -q
@@ -19,7 +20,8 @@ ENV_DIST     := iac/.env.dist
 
 .PHONY: help install test test-ingestion test-processing governance \
 		governance-contract governance-infra check lint up down logs \
-		retention-apply clean env build build-verify
+		retention-apply clean env build build-verify images-push \
+		release-check version-bump version flake8
 
 
 # ------- Aide ----------------------------------------------------
@@ -35,7 +37,7 @@ install: ## Installe les dépendances des deux pipelines + outils de test
 		$(PYTHON) -m pip install --upgrade pip
 		$(PYTHON) -m pip install -r src/pipelines/ingestion/requirements.txt
 		$(PYTHON) -m pip install -r src/pipelines/processing/requirements.txt
-		$(PYTHON) -m pip install pytest pytest-cov pyaml
+		$(PYTHON) -m pip install pytest pytest-cov pyyaml commitizen
 
 # -------- Etape test -------------------------------------------
 # Toujours lancé depuis la racine : les tests importent src.pipelines...,
@@ -49,10 +51,10 @@ test: ## Suite complète, avec rapports JUnit et couverture
 		--cov-report=term-missing
 
 test-ingestion: ## Suite d'ingestion seule (sans JVM)
-		$(PYTHON) -m pytest src/pipelines/ingestion $(PYTEST_FLAG)
+		$(PYTHON) -m pytest src/pipelines/ingestion $(PYTEST_FLAGS)
 
 test-processing: ## Suite processing seule (Spark requis pour tout exécuter)
-				 $(PYTHON) -m pytest src/piplines/processing ${PYTEST_FLAG}
+				 $(PYTHON) -m pytest src/pipelines/processing ${PYTEST_FLAGS}
 # ----- Etape gouvernance -----------------------------------------
 
 governance: governance-contract governance-infra
@@ -61,7 +63,7 @@ governance-contract: ## testing all features aof the data-contract
 		$(PYTHON) -m pytest \
 		  src/pipelines/processing/tests/test_data_contract.py $(PYTEST_FLAGS)
 
-governance-infra: # Infrastructure YAML and Prometheus rules 
+governance-infra: ## Infrastructure YAML and Prometheus rules 
 		@$(PYTHON) scripts/check_infra_yaml.py
 		docker run --rm -v "$(CURDIR):/w"  --entrypoint promtool \
 		  prom/prometheus:v2.53.0 check rules /w/$(ALERT_RULES)
@@ -70,9 +72,9 @@ governance-infra: # Infrastructure YAML and Prometheus rules
 # Non inclus dans 'check' : la base n'a jamais été lintée, un flake8
 
 lint: ## flake8
-	-$(PYTHON) -m flake8 --max-line-length 79 --count src/
+	$(PYTHON) -m flake8 --max-line-length 79 --count src/
 
-check: governance test ## Ce que la CI exécute
+check: governance test  ## Ce que la CI exécute
 
 # ------ Infra locale ---------------------------------------------------
 up: ## Démarre la stack de Dev
@@ -87,18 +89,18 @@ logs: ## Follow logs of Spark job
 
 
 retention-apply: ## Apply declared retentions to existing topics
-		  @for t in tweets_raw:604800000 tweets_enriched:7776000000
+		  @for t in tweets_raw:604800000 tweets_enriched:7776000000 \
 		  			audit_logs:1209600000; do \
 			topic=$${t%:*}; ms=$${t#*:}; \
 			docker exec -e KAFKA_OPTS= -e JMX_PORT= broker-1 \
 			  kafka-configs --bootstrap-server broker-1:29092 --alter \
-			  --entity-type topics --entity-name '$$topic' \
+			  --entity-type topics --entity-name "$$topic" \
 			  --add-config "retention.ms=$$ms"; \
 		  done
 
 clean: ## Drop the artifacts of the test
 		rm -rf $(REPORTS) .pytest_cache .coverage
-		find src -name "__pycache__" -type d-prune -exec rm -rf {} +
+		find src -name "__pycache__" -type d -prune -exec rm -rf {} +
 
 #Les blocs `include` du compose exigent iac/.env.dev, gitignoré car il
 # porte les secrets. En CI il n'existe pas : on le dérive du template.
@@ -133,7 +135,7 @@ build-verify: build ## Smoke test des images construites
 
 # Deploiment par version explicite : aucun tag 'latest' n'est poussé.
 # le registre est en immutable tags, donc un push d'une version déjà présente échoue
-images-push: ## Pousse les trois images sous leur tag de version
+images-push: build ## Pousse les trois images sous leur tag de version
 				@test -n "$(GCP_PROJECT_ID)" || \
 				  { echo "GCP_PROJECT_ID requis"; exit 1; }
 				@for img in ${IMAGES}; do \
@@ -142,5 +144,23 @@ images-push: ## Pousse les trois images sous leur tag de version
 				  docker push ${REGISTRY}/$$img:${VERSION_TAG}; \
 				done
 
+# --------------------- Etape release -----------------------------
 
+release-check: ## Valide les messages de commit de la branche
+				${PYTHON} -m commitizen check --rev-range origin/main..HEAD
+
+# commitizen sort en code 21 (NoneIncrementExit) quand aucun commit ne
+# justifie d'increment. Ce n'est pas une erreur : la traiter comme telle
+# ferait rougir la CI sur un push qui ne contient que des `docs:`.
+version-bump: ## Calcule la version; tague et met à jour le CHANGELOG
+				@$(PYTHON) -m commitizen bump --yes --changelog; \
+				code=$$?; \
+				if [ $$code -eq 21 ]; then \
+					echo "Aucun commit ne justifie en bump - rien à faire."; \
+				elif [ $$code -ne 0 ]; then \
+					exit $$code; \
+				fi
+
+version: ## Affiche la version courante
+				@cat VERSION
 

@@ -18,10 +18,11 @@ class TestBudgetLedger:
 
     def test_record_accumulates(self, tmp_path) -> None:
         """
-        Test that the record method accumulates the number of tweets and spent budget.
+        Test that the record method accumulates the number of tweets
+        and the spent budget.
         """
 
-        path = str(tmp_path/ "budget.json")
+        path = str(tmp_path / "budget.json")
         BudgetLedger(path).record(40, 0.005)
         BudgetLedger(path).record(60, 0.005)
 
@@ -69,12 +70,3 @@ class TestBudgetLedger:
         BudgetLedger(path).record(60, 0.005)
 
         assert BudgetLedger(path).tweets_fetched == 100
-
-
-
-
-
-
-
-
-
