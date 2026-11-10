@@ -88,10 +88,10 @@ def config_from_env(env: Mapping[str, str]) -> StreamConfig:
         max_offsets_per_trigger=int(
             env.get("MAX_OFFSETS_PER_TRIGGER", "1000")
         ),
-        checkpoint_location=env.get(
-            "CHECKPOINT_LOCATION",
-            "/tmp/spark-checkpoints/tweets_enriched",
-        ),
+        # Aucun defaut : un chemin ephemere ferait repartir le job d'un
+        # etat vide au redemarrage d'un pod, offsets Kafka remis a zero.
+        # main() refuse de demarrer si la variable manque.
+        checkpoint_location=env.get("CHECKPOINT_LOCATION", ""),
         trigger_interval=env.get("TRIGGER_INTERVAL", "30 seconds"),
         project=project,
         staging_table=bq_table,
@@ -170,6 +170,14 @@ def main() -> int:
         Exit code (0 for success, non-zero for failure).
     """
     config = config_from_env(os.environ)
+    if not config.checkpoint_location:
+        logger.error(
+            "CHECKPOINT_LOCATION non defini : le job refuse de demarrer. "
+            "L'etat du streaming doit survivre au redemarrage du pod "
+            "(volume persistant en dev, gs:// sur GKE)."
+        )
+        return 1
+
     logger.info(
         "Streaming %s from %s -> %s (offsets=%s)",
         config.topic,

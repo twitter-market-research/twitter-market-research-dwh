@@ -1,7 +1,6 @@
 # Spark Structured Streaming job: Kafka(tweets_raw) -> enrich -> BigQuery.
-pyspark==3.5.1
+pyspark==3.5.9
 
 # Sink to the BigQuery emulator (dev) / BigQuery (prod) from foreachBatch.
 google-cloud-bigquery==3.25.0
 
-python-dotenv==0.9.1

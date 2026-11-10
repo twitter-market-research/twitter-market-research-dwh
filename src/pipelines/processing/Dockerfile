@@ -1,4 +1,4 @@
-FROM apache/spark:3.5.1
+FROM apache/spark:3.5.9
 
 USER root
 WORKDIR /app
@@ -8,8 +8,8 @@ WORKDIR /app
 # with --packages contacts Maven Central on every single start. Here the
 # artifacts are baked in, so the job boots offline and deterministically.
 
-# Only these 4 are missing from apache/spark:3.5.1
-ARG SPARK_VERSION=3.5.1
+# Only these 4 are missing from apache/spark:3.5.9
+ARG SPARK_VERSION=3.5.9
 ARG KAFKA_CLIENTS_VERSION=3.4.1
 ARG COMMONS_POOL2_VERSION=2.11.1
 ARG MAVEN=https://repo1.maven.org/maven2
@@ -25,8 +25,7 @@ RUN set -eux; \
 # No need to install pyspark: the image already provides it under
 # /opt/spark/python.
 RUN python3 -m pip install --no-cache-dir \
-        google-cloud-bigquery==3.25.0 \
-        python-dotenv==0.9.1
+        google-cloud-bigquery==3.25.0
 
 
 

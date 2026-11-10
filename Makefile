@@ -21,7 +21,8 @@ ENV_DIST     := iac/.env.dist
 .PHONY: help install test test-ingestion test-processing governance \
 		governance-contract governance-infra check lint up down logs \
 		retention-apply clean env build build-verify images-push \
-		release-check version-bump version flake8
+		release-check version-bump version flake8 security audit-deps \
+		sast scan-secrets
 
 
 # ------- Aide ----------------------------------------------------
@@ -37,7 +38,7 @@ install: ## Installe les dépendances des deux pipelines + outils de test
 		$(PYTHON) -m pip install --upgrade pip
 		$(PYTHON) -m pip install -r src/pipelines/ingestion/requirements.txt
 		$(PYTHON) -m pip install -r src/pipelines/processing/requirements.txt
-		$(PYTHON) -m pip install pytest pytest-cov pyyaml commitizen
+		$(PYTHON) -m pip install pytest pytest-cov pyyaml commitizen flake8 bandit pip-audit
 
 # -------- Etape test -------------------------------------------
 # Toujours lancé depuis la racine : les tests importent src.pipelines...,
@@ -69,12 +70,11 @@ governance-infra: ## Infrastructure YAML and Prometheus rules
 		  prom/prometheus:v2.53.0 check rules /w/$(ALERT_RULES)
 
 # ------ Etape code -------------------------------------------------------
-# Non inclus dans 'check' : la base n'a jamais été lintée, un flake8
 
 lint: ## flake8
 	$(PYTHON) -m flake8 --max-line-length 79 --count src/
 
-check: governance test  ## Ce que la CI exécute
+check: governance lint test  ## Ce que la CI exécute
 
 # ------ Infra locale ---------------------------------------------------
 up: ## Démarre la stack de Dev
@@ -85,7 +85,6 @@ down: ## Stop all the stack
 
 logs: ## Follow logs of Spark job
 		$(COMPOSE) logs -f spark-processing
-
 
 
 retention-apply: ## Apply declared retentions to existing topics
@@ -143,6 +142,22 @@ images-push: build ## Pousse les trois images sous leur tag de version
 				  	${REGISTRY}/$$img:${VERSION_TAG}; \
 				  docker push ${REGISTRY}/$$img:${VERSION_TAG}; \
 				done
+
+
+# --------------- Etape sécurité ---------------------------------------
+security: audit-deps sast scan-secrets
+
+audit-deps:
+		$(PYTHON) -m pip_audit -r src/pipelines/ingestion/requirements.txt
+		$(PYTHON) -m pip_audit -r src/pipelines/processing/requirements.txt
+
+sast: ## Analyse statique
+		$(PYTHON) -m bandit -r src/pipelines -ll -x "*/tests/*"
+
+scan-secrets:
+		docker run --rm -v "$(CURDIR):/repo" \
+			zricethezav/gitleaks:v8.18.4 detect --source=/repo --no-banner
+
 
 # --------------------- Etape release -----------------------------
 
