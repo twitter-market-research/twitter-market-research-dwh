@@ -145,18 +145,26 @@ images-push: build ## Pousse les trois images sous leur tag de version
 
 
 # --------------- Etape sécurité ---------------------------------------
-security: audit-deps sast scan-secrets
+security: audit-deps sast scan-secrets  ## Audit deps + SAST + secrets
 
-audit-deps:
+audit-deps: ## CVE connues des dependances declarees
 		$(PYTHON) -m pip_audit -r src/pipelines/ingestion/requirements.txt
 		$(PYTHON) -m pip_audit -r src/pipelines/processing/requirements.txt
 
 sast: ## Analyse statique
 		$(PYTHON) -m bandit -r src/pipelines -ll -x "*/tests/*"
 
-scan-secrets:
+# --redact : sans lui gitleaks recopie le secret trouve en clair dans les
+# logs CI, conserves 90 jours. Les trois GIT_CONFIG_* desarment le refus
+# "dubious ownership" de git : le conteneur tourne en root alors que le
+# checkout appartient a l'uid du runner, et gitleaks appelle git log.
+scan-secrets: ## gitleaks sur tout l'historique git
 		docker run --rm -v "$(CURDIR):/repo" \
-			zricethezav/gitleaks:v8.18.4 detect --source=/repo --no-banner
+			-e GIT_CONFIG_COUNT=1 \
+			-e GIT_CONFIG_KEY_0=safe.directory \
+			-e GIT_CONFIG_VALUE_0=/repo \
+			zricethezav/gitleaks:v8.18.4 detect --source=/repo \
+			  --no-banner --redact
 
 
 # --------------------- Etape release -----------------------------
