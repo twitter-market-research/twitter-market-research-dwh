@@ -301,10 +301,14 @@ class TestScraperEnricherScrapeProfile:
 
     @patch(f"{_MOD}.twikit.Client")
     @pytest.mark.asyncio
-    async def test_scrape_profile_raises_enrichment_error_on_network_failure(
+    async def test_scrape_profile_returns_none_on_network_failure(
         self, mock_client_cls
     ):
-        """Une erreur réseau lève EnrichmentError"""
+        """Une erreur réseau dégrade gracieusement : _scrape_user_profile
+        journalise puis renvoie None. Le nom précédent annonçait une
+        EnrichmentError que le code ne lève pas — un tweet non enrichi
+        ne doit pas interrompre le batch.
+        """
 
         mock_client = AsyncMock()
         mock_client.get_user_by_screen_name = AsyncMock(

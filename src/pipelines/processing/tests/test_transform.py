@@ -2,6 +2,7 @@
 """
 
 from pyspark.sql import SparkSession
+from pyspark.sql.functions import date_format
 from datetime import datetime
 import json
 import pytest
@@ -67,13 +68,22 @@ class TestEnrichStream:
         df = _frame(spark, json.dumps(VALID_TWEET))
         enriched = enrich_stream(df)
         row = enriched.collect()[0]
+
+        # row.created_at arrive en datetime naif converti dans le fuseau du
+        # driver, quelle que soit spark.sql.session.timeZone : l'assertion
+        # dependrait de la machine (verte en CI sous UTC, rouge a Paris).
+        # On formate cote Spark, ou la session est en UTC, ce qui verifie au
+        # passage ce qui atterrit reellement dans BigQuery.
+        formatted_created_at = enriched.select(
+            date_format("created_at", "yyyy-MM-dd'T'HH:mm:ss").alias("ts")
+        ).collect()[0]["ts"]
         expected_created_at = datetime.strptime(
             VALID_TWEET["created_at"], "%Y-%m-%dT%H:%M:%S.%fZ"
-        )
+        ).strftime("%Y-%m-%dT%H:%M:%S")
 
         assert row.tweet_id == VALID_TWEET["tweet_id"]
         assert row.text == VALID_TWEET["text"]
-        assert row.created_at == expected_created_at
+        assert formatted_created_at == expected_created_at
         assert row.author_id == VALID_TWEET["author_id"]
         assert row.lang == VALID_TWEET["lang"]
         assert row.like_count == VALID_TWEET["like_count"]
